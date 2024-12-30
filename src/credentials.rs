@@ -6,7 +6,7 @@ use windows::{
     },
 };
 
-use crate::to_boxed_zero_term;
+use crate::{to_boxed_zero_term, NEGOTIATE_ZERO_TERM_UTF16};
 
 #[derive(Debug, Default)]
 pub struct Credentials(SecHandle);
@@ -15,12 +15,11 @@ impl Credentials {
         let mut cred = SecHandle::default();
         let boxed_os = principal.map(to_boxed_zero_term);
         let principal = boxed_os.map(|bo| bo.as_ptr()).unwrap_or(std::ptr::null());
-        let negotiate = to_boxed_zero_term("Negotiate");
         unsafe {
             AcquireCredentialsHandleW(
                 // Must be valid UTF16 zero-terminated string or null pointer (if own user is needed)
                 PCWSTR(principal),
-                PCWSTR(negotiate.as_ptr()),
+                PCWSTR(NEGOTIATE_ZERO_TERM_UTF16.as_ptr().cast()),
                 SECPKG_CRED_INBOUND,
                 None,
                 None,
@@ -31,7 +30,6 @@ impl Credentials {
             )
             .map_err(|e| e.message())?;
         };
-        drop(negotiate);
         Ok(Self(cred))
     }
     pub fn handle(&self) -> &SecHandle {

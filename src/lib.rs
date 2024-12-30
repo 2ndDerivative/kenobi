@@ -25,6 +25,10 @@ use windows::{
     },
 };
 
+const NEGOTIATE_ZERO_TERM_UTF16: &[u8] = &[
+    78, 0, 101, 0, 103, 0, 111, 0, 116, 0, 105, 0, 97, 0, 116, 0, 101, 0, 0, 0,
+];
+
 mod attributes;
 mod credentials;
 
@@ -54,8 +58,8 @@ impl ContextBuilder {
     pub fn new(principal: Option<&str>) -> Result<Self, String> {
         let credentials = Credentials::new(principal)?;
         let max_context_length = unsafe {
-            let info =
-                QuerySecurityPackageInfoW(PCWSTR(to_boxed_zero_term("Negotiate").as_ptr())).map_err(|e| e.message())?;
+            let info = QuerySecurityPackageInfoW(PCWSTR(NEGOTIATE_ZERO_TERM_UTF16.as_ptr().cast()))
+                .map_err(|e| e.message())?;
             let context_length = (*info).cbMaxToken as usize;
             FreeContextBuffer(info as *mut c_void).map_err(|e| e.message())?;
             context_length
