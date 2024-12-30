@@ -11,9 +11,9 @@ use windows::{
     core::PCWSTR,
     Win32::{
         Foundation::{
-            SEC_E_INCOMPLETE_MESSAGE, SEC_E_INSUFFICIENT_MEMORY, SEC_E_INTERNAL_ERROR, SEC_E_INVALID_HANDLE,
-            SEC_E_INVALID_TOKEN, SEC_E_LOGON_DENIED, SEC_E_NO_AUTHENTICATING_AUTHORITY, SEC_E_NO_CREDENTIALS, SEC_E_OK,
-            SEC_E_UNSUPPORTED_FUNCTION,
+            SEC_E_BUFFER_TOO_SMALL, SEC_E_INCOMPLETE_MESSAGE, SEC_E_INSUFFICIENT_MEMORY, SEC_E_INTERNAL_ERROR,
+            SEC_E_INVALID_HANDLE, SEC_E_INVALID_TOKEN, SEC_E_LOGON_DENIED, SEC_E_NO_AUTHENTICATING_AUTHORITY,
+            SEC_E_NO_CREDENTIALS, SEC_E_OK, SEC_E_UNSUPPORTED_FUNCTION,
         },
         Security::{
             Authentication::Identity::{
@@ -122,7 +122,7 @@ fn step(
         pBuffers: &mut in_buf,
     };
     let mut out_buf = SecBuffer {
-        cbBuffer: token.len() as u32,
+        cbBuffer: output_buffer.len() as u32,
         BufferType: SECBUFFER_TOKEN,
         pvBuffer: output_buffer.as_ptr() as *mut c_void,
     };
@@ -168,6 +168,7 @@ fn step(
         SEC_E_UNSUPPORTED_FUNCTION => unreachable!(
             "Unsupported function error. should be impossible without ASC_REQ_DELEGATE or ASC_REQ_PROMPT_FOR_CREDS"
         ),
+        SEC_E_BUFFER_TOO_SMALL => return Err(StepError::InvalidToken),
         SEC_E_NO_AUTHENTICATING_AUTHORITY => return Err(StepError::NoAuthenticatingAuthority),
         SEC_E_INVALID_TOKEN => return Err(StepError::InvalidToken),
         SEC_E_LOGON_DENIED => return Err(StepError::LogonDenied),
