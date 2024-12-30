@@ -1,15 +1,14 @@
 [package]
 name = "kenobi"
 authors = ["Niclas Klugmann <niclas@klugmann.de>"]
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
-description = "A Windows Negotiate implementation. Forked off cross-krb5."
+description = "A Windows Negotiate implementation. Forked off cross-krb5. Windows-only so far. WIP"
 keywords = ["windows", "sspi", "kerberos", "ntlm"]
 license = "MIT"
 
 [dependencies]
 windows = { version = "0.58.0", features = [
-    "Win32_Foundation",
     "Win32_Globalization",
     "Win32_Security_Authentication_Identity",
     "Win32_Security_Credentials",

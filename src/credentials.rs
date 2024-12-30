@@ -8,7 +8,7 @@ use windows::{
 
 use crate::to_boxed_zero_term;
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Credentials(SecHandle);
 impl Credentials {
     pub fn new(principal: Option<&str>) -> Result<Self, String> {
@@ -18,6 +18,7 @@ impl Credentials {
         let negotiate = to_boxed_zero_term("Negotiate");
         unsafe {
             AcquireCredentialsHandleW(
+                // Must be valid UTF16 zero-terminated string or null pointer (if own user is needed)
                 PCWSTR(principal),
                 PCWSTR(negotiate.as_ptr()),
                 SECPKG_CRED_INBOUND,
