@@ -1,3 +1,5 @@
+use std::{ffi::OsStr, os::windows::ffi::OsStrExt};
+
 use windows::{
     core::PCWSTR,
     Win32::Security::{
@@ -6,14 +8,15 @@ use windows::{
     },
 };
 
-use crate::{to_boxed_zero_term, NEGOTIATE_ZERO_TERM_UTF16};
+use crate::NEGOTIATE_ZERO_TERM_UTF16;
 
 #[derive(Debug, Default)]
 pub struct Credentials(SecHandle);
 impl Credentials {
     pub fn new(principal: Option<&str>) -> Result<Self, String> {
         let mut cred = SecHandle::default();
-        let boxed_os = principal.map(to_boxed_zero_term);
+        let boxed_os: Option<Box<[u16]>> =
+            principal.map(|p| OsStr::new(p).encode_wide().chain(std::iter::once(0)).collect());
         let principal = boxed_os.map(|bo| bo.as_ptr()).unwrap_or(std::ptr::null());
         unsafe {
             AcquireCredentialsHandleW(

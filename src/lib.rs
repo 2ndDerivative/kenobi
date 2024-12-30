@@ -1,9 +1,10 @@
 use std::{
     error::Error,
-    ffi::{c_void, OsString},
+    ffi::{c_void, OsStr, OsString},
     fmt::{Display, Formatter},
     mem::{transmute, MaybeUninit},
     os::windows::ffi::OsStrExt,
+    sync::LazyLock,
 };
 
 use credentials::Credentials;
@@ -25,9 +26,12 @@ use windows::{
     },
 };
 
-const NEGOTIATE_ZERO_TERM_UTF16: &[u8] = &[
-    78, 0, 101, 0, 103, 0, 111, 0, 116, 0, 105, 0, 97, 0, 116, 0, 101, 0, 0, 0,
-];
+static NEGOTIATE_ZERO_TERM_UTF16: LazyLock<Box<[u16]>> = LazyLock::new(|| {
+    OsStr::new("Negotiate")
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect()
+});
 
 mod attributes;
 mod credentials;
@@ -236,10 +240,4 @@ impl Display for StepError {
             Self::IncompleteMessage => write!(f, "{SEC_E_INCOMPLETE_MESSAGE}"),
         }
     }
-}
-
-fn to_boxed_zero_term(s: &str) -> Box<[u16]> {
-    let mut v = OsString::from(s).encode_wide().collect::<Vec<_>>();
-    v.push(0);
-    v.into_boxed_slice()
 }
