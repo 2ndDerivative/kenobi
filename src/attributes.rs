@@ -38,8 +38,8 @@ pub fn server_native_name(sec_handle: &SecHandle) -> Result<OsString, String> {
     Ok(unsafe { string_from_wstr(target.sServerName) })
 }
 
-fn get_attribute<T: SecPkgAttribute>(sec_handle: &SecHandle) -> Result<Box<T>, String> {
-    let mut target: Box<MaybeUninit<T>> = Box::new_uninit();
+fn get_attribute<T: SecPkgAttribute>(sec_handle: &SecHandle) -> Result<T, String> {
+    let mut target: MaybeUninit<T> = MaybeUninit::uninit();
     // # Safety
     //
     // Memory being valid for the specific type is enforced in the SecPkgAttribute trait
@@ -48,7 +48,7 @@ fn get_attribute<T: SecPkgAttribute>(sec_handle: &SecHandle) -> Result<Box<T>, S
             sec_handle,
             T::SEC_PKG_ATTRIBUTE,
             target.as_mut_ptr() as *mut c_void,
-            size_of::<Box<MaybeUninit<T>>>() as u32,
+            size_of::<MaybeUninit<T>>() as u32,
         )
         .map_err(|e| e.message())?;
         Ok(target.assume_init())
