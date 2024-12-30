@@ -1,15 +1,14 @@
 use windows::{
     core::PCWSTR,
     Win32::Security::{
-        Authentication::Identity::{
-            AcquireCredentialsHandleW, FreeCredentialsHandle, SECPKG_CRED_INBOUND,
-        },
+        Authentication::Identity::{AcquireCredentialsHandleW, FreeCredentialsHandle, SECPKG_CRED_INBOUND},
         Credentials::SecHandle,
     },
 };
 
 use crate::to_boxed_zero_term;
 
+#[derive(Default)]
 pub struct Credentials(SecHandle);
 impl Credentials {
     pub fn new(principal: Option<&str>) -> Result<Self, String> {
