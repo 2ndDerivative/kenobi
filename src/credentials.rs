@@ -1,4 +1,4 @@
-use std::{ffi::OsStr, os::windows::ffi::OsStrExt};
+use std::{ffi::OsStr, ops::Deref, os::windows::ffi::OsStrExt};
 
 use windows::{
     core::PCWSTR,
@@ -11,8 +11,8 @@ use windows::{
 use crate::NEGOTIATE_ZERO_TERM_UTF16;
 
 #[derive(Debug, Default)]
-pub struct Credentials(SecHandle);
-impl Credentials {
+pub struct CredentialsHandle(SecHandle);
+impl CredentialsHandle {
     pub fn new(principal: Option<&str>) -> Result<Self, String> {
         let mut cred = SecHandle::default();
         let boxed_os: Option<Box<[u16]>> =
@@ -35,11 +35,14 @@ impl Credentials {
         };
         Ok(Self(cred))
     }
-    pub fn handle(&self) -> &SecHandle {
+}
+impl Deref for CredentialsHandle {
+    type Target = SecHandle;
+    fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
-impl Drop for Credentials {
+impl Drop for CredentialsHandle {
     fn drop(&mut self) {
         unsafe {
             let _ = FreeCredentialsHandle(&self.0);

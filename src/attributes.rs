@@ -1,6 +1,7 @@
 use std::{
     ffi::{c_void, OsString},
     mem::MaybeUninit,
+    ops::Deref,
     os::windows::ffi::OsStringExt,
 };
 
@@ -8,44 +9,43 @@ use windows::{
     core::PCWSTR,
     Win32::{
         Globalization::lstrlenW,
-        Security::{
-            Authentication::Identity::{
-                QueryContextAttributesExW, SecPkgContext_ClientSpecifiedTarget, SecPkgContext_NamesW,
-                SecPkgContext_NativeNamesW, SECPKG_ATTR, SECPKG_ATTR_CLIENT_SPECIFIED_TARGET, SECPKG_ATTR_NAMES,
-                SECPKG_ATTR_NATIVE_NAMES,
-            },
-            Credentials::SecHandle,
+        Security::Authentication::Identity::{
+            QueryContextAttributesExW, SecPkgContext_ClientSpecifiedTarget, SecPkgContext_NamesW,
+            SecPkgContext_NativeNamesW, SECPKG_ATTR, SECPKG_ATTR_CLIENT_SPECIFIED_TARGET, SECPKG_ATTR_NAMES,
+            SECPKG_ATTR_NATIVE_NAMES,
         },
     },
 };
 
-pub fn client_target(sec_handle: &SecHandle) -> Result<OsString, String> {
+use crate::step::ContextHandle;
+
+pub fn client_target(sec_handle: &ContextHandle) -> Result<OsString, String> {
     let target = get_attribute::<SecPkgContext_ClientSpecifiedTarget>(sec_handle)?;
     Ok(unsafe { string_from_wstr(target.sTargetName) })
 }
 
-pub fn client_name(sec_handle: &SecHandle) -> Result<OsString, String> {
+pub fn client_name(sec_handle: &ContextHandle) -> Result<OsString, String> {
     let target = get_attribute::<SecPkgContext_NamesW>(sec_handle)?;
     Ok(unsafe { string_from_wstr(target.sUserName) })
 }
 
-pub fn client_native_name(sec_handle: &SecHandle) -> Result<OsString, String> {
+pub fn client_native_name(sec_handle: &ContextHandle) -> Result<OsString, String> {
     let target = get_attribute::<SecPkgContext_NativeNamesW>(sec_handle)?;
     Ok(unsafe { string_from_wstr(target.sClientName) })
 }
-pub fn server_native_name(sec_handle: &SecHandle) -> Result<OsString, String> {
+pub fn server_native_name(sec_handle: &ContextHandle) -> Result<OsString, String> {
     let target = get_attribute::<SecPkgContext_NativeNamesW>(sec_handle)?;
     Ok(unsafe { string_from_wstr(target.sServerName) })
 }
 
-fn get_attribute<T: SecPkgAttribute>(sec_handle: &SecHandle) -> Result<T, String> {
+fn get_attribute<T: SecPkgAttribute>(sec_handle: &ContextHandle) -> Result<T, String> {
     let mut target: MaybeUninit<T> = MaybeUninit::uninit();
     // # Safety
     //
     // Memory being valid for the specific type is enforced in the SecPkgAttribute trait
     unsafe {
         QueryContextAttributesExW(
-            sec_handle,
+            sec_handle.deref(),
             T::SEC_PKG_ATTRIBUTE,
             target.as_mut_ptr() as *mut c_void,
             size_of::<MaybeUninit<T>>() as u32,
