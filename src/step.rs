@@ -2,8 +2,8 @@
 use std::{
     error::Error,
     fmt::{Display, Formatter},
-    mem::{transmute, MaybeUninit},
-    ops::{Deref, DerefMut},
+    mem::{ManuallyDrop, MaybeUninit},
+    ops::Deref,
 };
 
 use windows::Win32::{
@@ -38,10 +38,10 @@ impl ContextHandle {
     ) -> StepResult {
         let mut in_buf = SecurityBuffer::new(token);
         let mut out_buf = SecurityBuffer::new(&buffer);
-        let old_context: Option<*const SecHandle> = context.as_deref().map(std::ptr::from_ref);
-        let mut context: MaybeUninit<SecHandle> = match context {
+        let old_context: Option<*const SecHandle> = context.as_ref().map(|x| std::ptr::from_ref(x.as_ref()));
+        let mut mut_context: MaybeUninit<SecHandle> = match context {
             // T -> MaybeUninit<T> is always safe
-            Some(bx) => unsafe { transmute::<SecHandle, MaybeUninit<SecHandle>>(*bx) },
+            Some(bx) => MaybeUninit::new(ManuallyDrop::new(bx).0),
             None => MaybeUninit::uninit(),
         };
         let res = unsafe {
@@ -52,13 +52,13 @@ impl ContextHandle {
                 Some(&in_buf.description()),
                 ASC_REQ_CONFIDENTIALITY | ASC_REQ_MUTUAL_AUTH,
                 SECURITY_NATIVE_DREP,
-                Some(context.as_mut_ptr()),
+                Some(mut_context.as_mut_ptr()),
                 Some(&mut out_buf.description()),
                 &mut attr_flags,
                 Some(&mut 0),
             )
         };
-        let context = Self(unsafe { context.assume_init() });
+        let context = Self(unsafe { mut_context.assume_init() });
         let is_done = match res {
             SEC_E_OK => true,
             SEC_E_INCOMPLETE_MESSAGE => return Err(StepError::IncompleteMessage),
@@ -101,14 +101,13 @@ impl Drop for ContextHandle {
         let _ = unsafe { DeleteSecurityContext(&self.0) };
     }
 }
-impl Deref for ContextHandle {
-    type Target = SecHandle;
-    fn deref(&self) -> &Self::Target {
+impl AsRef<SecHandle> for ContextHandle {
+    fn as_ref(&self) -> &SecHandle {
         &self.0
     }
 }
-impl DerefMut for ContextHandle {
-    fn deref_mut(&mut self) -> &mut Self::Target {
+impl AsMut<SecHandle> for ContextHandle {
+    fn as_mut(&mut self) -> &mut SecHandle {
         &mut self.0
     }
 }

@@ -1,7 +1,6 @@
 use std::{
     ffi::{c_void, OsString},
     mem::MaybeUninit,
-    ops::Deref,
     os::windows::ffi::OsStringExt,
 };
 
@@ -45,7 +44,7 @@ fn get_attribute<T: SecPkgAttribute>(sec_handle: &ContextHandle) -> Result<T, St
     // Memory being valid for the specific type is enforced in the SecPkgAttribute trait
     unsafe {
         QueryContextAttributesExW(
-            sec_handle.deref(),
+            sec_handle.as_ref(),
             T::SEC_PKG_ATTRIBUTE,
             target.as_mut_ptr() as *mut c_void,
             size_of::<MaybeUninit<T>>() as u32,
