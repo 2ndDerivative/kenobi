@@ -12,7 +12,7 @@ use windows::{
     Win32::Security::Authentication::Identity::{FreeContextBuffer, QuerySecurityPackageInfoW},
 };
 
-use crate::{SecurityInfo, StepResult};
+use crate::{SecurityInfo, StepError, StepResult};
 
 mod attributes;
 mod buffer;
@@ -115,5 +115,17 @@ impl FinishedContext {
 impl SecurityInfo for FinishedContext {
     fn security_info(&self) -> SecurityInfoHandle {
         SecurityInfoHandle(&self.context)
+    }
+}
+
+pub(crate) fn format_error(error: &StepError, f: &mut Formatter<'_>) -> std::fmt::Result {
+    use windows::Win32::Foundation::{
+        SEC_E_INCOMPLETE_MESSAGE, SEC_E_INVALID_TOKEN, SEC_E_LOGON_DENIED, SEC_E_NO_AUTHENTICATING_AUTHORITY,
+    };
+    match error {
+        StepError::InvalidToken => write!(f, "{SEC_E_INVALID_TOKEN}"),
+        StepError::LogonDenied => write!(f, "{SEC_E_LOGON_DENIED}"),
+        StepError::NoAuthenticatingAuthority => write!(f, "{SEC_E_NO_AUTHENTICATING_AUTHORITY}"),
+        StepError::IncompleteMessage => write!(f, "{SEC_E_INCOMPLETE_MESSAGE}"),
     }
 }
