@@ -8,7 +8,7 @@ use windows::{
     },
 };
 
-use crate::NEGOTIATE_ZERO_TERM_UTF16;
+use super::NEGOTIATE_ZERO_TERM_UTF16;
 
 #[derive(Debug, Default)]
 pub struct CredentialsHandle(SecHandle);

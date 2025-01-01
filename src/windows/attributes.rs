@@ -16,7 +16,7 @@ use windows::{
     },
 };
 
-use crate::step::ContextHandle;
+use super::step::ContextHandle;
 
 pub fn client_target(sec_handle: &ContextHandle) -> Result<OsString, String> {
     let target = get_attribute::<SecPkgContext_ClientSpecifiedTarget>(sec_handle)?;
