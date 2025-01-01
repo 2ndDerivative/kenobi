@@ -8,17 +8,14 @@ mod unix;
 mod windows;
 
 #[cfg(unix)]
-pub use unix::{ContextBuilder, FinishedContext, PendingContext};
+use unix as sys;
 #[cfg(windows)]
-pub use windows::{ContextBuilder, FinishedContext, PendingContext};
+use windows as sys;
+
+pub use sys::{ContextBuilder, FinishedContext, PendingContext, SecurityInfoHandle};
 
 pub use step::{Step, StepError, StepSuccess};
 pub type StepResult = Result<StepSuccess, StepError>;
-
-#[cfg(unix)]
-use unix::SecurityInfoHandle;
-#[cfg(windows)]
-use windows::SecurityInfoHandle;
 
 pub trait SecurityInfo {
     fn security_info(&self) -> SecurityInfoHandle;
