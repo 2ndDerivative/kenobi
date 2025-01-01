@@ -77,15 +77,18 @@ impl ContextHandle {
         // Documentation claims to always write initialized Context into here if there was no error
         let response_token = (!out_buf.is_empty()).then_some(out_buf.as_ref().into());
         if is_done {
-            Ok(StepSuccess::Finished(FinishedContext { context }, response_token))
+            Ok(StepSuccess::Finished(
+                crate::FinishedContext(FinishedContext { context }),
+                response_token,
+            ))
         } else {
             Ok(StepSuccess::Continue(
-                PendingContext {
+                crate::PendingContext(PendingContext {
                     credentials,
                     context,
                     buffer,
                     attr_flags,
-                },
+                }),
                 response_token.expect("Windows expects to continue, but didn't provide a token"),
             ))
         }

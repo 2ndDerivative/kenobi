@@ -1,19 +1,22 @@
-use std::ffi::OsString;
+use std::{ffi::OsString, marker::PhantomData};
 
 use crate::{SecurityInfo, StepError, StepResult};
 
-pub struct SecurityInfoHandle;
+pub struct SecurityInfoHandle<'s>(PhantomData<&'s ()>);
 pub struct ContextBuilder;
 impl ContextBuilder {
-    pub(crate) fn step_impl(self, _token: &[u8]) -> StepResult {
+    pub fn step_impl(self, _token: &[u8]) -> StepResult {
+        unimplemented!()
+    }
+    pub fn new(_principal: Option<&str>) -> Result<Self, String> {
         unimplemented!()
     }
 }
 #[derive(Debug)]
 pub struct PendingContext;
 impl SecurityInfo for PendingContext {
-    fn security_info(&self) -> SecurityInfoHandle {
-        SecurityInfoHandle
+    fn security_info(&self) -> crate::SecurityInfoHandle {
+        crate::SecurityInfoHandle(SecurityInfoHandle(PhantomData))
     }
 }
 impl PendingContext {
@@ -29,8 +32,8 @@ impl FinishedContext {
     }
 }
 impl SecurityInfo for FinishedContext {
-    fn security_info(&self) -> SecurityInfoHandle {
-        SecurityInfoHandle
+    fn security_info(&self) -> crate::SecurityInfoHandle {
+        crate::SecurityInfoHandle(SecurityInfoHandle(PhantomData))
     }
 }
 

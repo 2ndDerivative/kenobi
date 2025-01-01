@@ -10,12 +10,12 @@ pub trait Step {
 }
 impl Step for ContextBuilder {
     fn step(self, token: &[u8]) -> Result<StepSuccess, StepError> {
-        self.step_impl(token)
+        self.0.step_impl(token)
     }
 }
 impl Step for PendingContext {
     fn step(self, token: &[u8]) -> Result<StepSuccess, StepError> {
-        self.step_impl(token)
+        self.0.step_impl(token)
     }
 }
 

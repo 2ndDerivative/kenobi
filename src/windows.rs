@@ -76,14 +76,10 @@ pub struct PendingContext {
     buffer: Box<[u8]>,
     attr_flags: u32,
 }
-impl std::fmt::Debug for PendingContext {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str("PendingContext")
-    }
-}
+
 impl SecurityInfo for PendingContext {
-    fn security_info(&self) -> SecurityInfoHandle {
-        SecurityInfoHandle(&self.context)
+    fn security_info(&self) -> crate::SecurityInfoHandle {
+        crate::SecurityInfoHandle(SecurityInfoHandle(&self.context))
     }
 }
 impl PendingContext {
@@ -101,11 +97,6 @@ impl PendingContext {
 pub struct FinishedContext {
     context: ContextHandle,
 }
-impl std::fmt::Debug for FinishedContext {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str("FinishedContext")
-    }
-}
 impl FinishedContext {
     pub fn client_target(&self) -> Result<OsString, String> {
         attributes::client_target(&self.context)
@@ -113,8 +104,8 @@ impl FinishedContext {
 }
 
 impl SecurityInfo for FinishedContext {
-    fn security_info(&self) -> SecurityInfoHandle {
-        SecurityInfoHandle(&self.context)
+    fn security_info(&self) -> crate::SecurityInfoHandle {
+        crate::SecurityInfoHandle(SecurityInfoHandle(&self.context))
     }
 }
 
