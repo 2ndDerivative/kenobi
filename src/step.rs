@@ -3,8 +3,7 @@ use std::{
     fmt::{Display, Formatter},
 };
 
-#[cfg(windows)]
-use crate::windows::{FinishedContext, PendingContext};
+use crate::{ContextBuilder, FinishedContext, PendingContext};
 #[cfg(windows)]
 use windows::Win32::Foundation::{
     SEC_E_INCOMPLETE_MESSAGE, SEC_E_INVALID_TOKEN, SEC_E_LOGON_DENIED, SEC_E_NO_AUTHENTICATING_AUTHORITY,
@@ -12,6 +11,16 @@ use windows::Win32::Foundation::{
 
 pub trait Step {
     fn step(self, token: &[u8]) -> Result<StepSuccess, StepError>;
+}
+impl Step for ContextBuilder {
+    fn step(self, token: &[u8]) -> Result<StepSuccess, StepError> {
+        self.step_impl(token)
+    }
+}
+impl Step for PendingContext {
+    fn step(self, token: &[u8]) -> Result<StepSuccess, StepError> {
+        self.step_impl(token)
+    }
 }
 
 #[derive(Debug)]
@@ -38,5 +47,11 @@ impl Display for StepError {
             Self::NoAuthenticatingAuthority => write!(f, "{SEC_E_NO_AUTHENTICATING_AUTHORITY}"),
             Self::IncompleteMessage => write!(f, "{SEC_E_INCOMPLETE_MESSAGE}"),
         }
+    }
+}
+#[cfg(unix)]
+impl Display for StepError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Unix is not yet supported")
     }
 }

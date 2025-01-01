@@ -12,7 +12,7 @@ use windows::{
     Win32::Security::Authentication::Identity::{FreeContextBuffer, QuerySecurityPackageInfoW},
 };
 
-use crate::{SecurityInfo, Step, StepResult};
+use crate::{SecurityInfo, StepResult};
 
 mod attributes;
 mod buffer;
@@ -59,9 +59,7 @@ impl ContextBuilder {
             max_context_length,
         })
     }
-}
-impl Step for ContextBuilder {
-    fn step(self, token: &[u8]) -> StepResult {
+    pub(crate) fn step_impl(self, token: &[u8]) -> StepResult {
         ContextHandle::step(
             self.credentials,
             None,
@@ -88,8 +86,8 @@ impl SecurityInfo for PendingContext {
         SecurityInfoHandle(&self.context)
     }
 }
-impl Step for PendingContext {
-    fn step(self, token: &[u8]) -> StepResult {
+impl PendingContext {
+    pub(crate) fn step_impl(self, token: &[u8]) -> StepResult {
         let Self {
             credentials,
             context,
