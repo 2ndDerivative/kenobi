@@ -13,8 +13,7 @@ use windows as sys;
 pub struct ContextBuilder(sys::ContextBuilder);
 impl ContextBuilder {
     pub fn new(principal: Option<&str>) -> Result<Self, String> {
-        let self_impl = sys::ContextBuilder::new(principal)?;
-        Ok(Self(self_impl))
+        sys::ContextBuilder::new(principal).map(Self)
     }
 }
 pub struct FinishedContext(sys::FinishedContext);
@@ -28,10 +27,20 @@ impl std::fmt::Debug for FinishedContext {
         f.write_str("FinishedContext")
     }
 }
+impl SecurityInfo for FinishedContext {
+    fn security_info(&self) -> SecurityInfoHandle {
+        self.0.security_info()
+    }
+}
 pub struct PendingContext(sys::PendingContext);
 impl std::fmt::Debug for PendingContext {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str("PendingContext")
+    }
+}
+impl SecurityInfo for PendingContext {
+    fn security_info(&self) -> SecurityInfoHandle {
+        self.0.security_info()
     }
 }
 pub struct SecurityInfoHandle<'s>(sys::SecurityInfoHandle<'s>);
