@@ -1,14 +1,12 @@
 use std::{
-    ffi::{c_void, OsStr, OsString},
+    ffi::{c_void, OsString},
     fmt::Formatter,
-    os::windows::ffi::OsStrExt,
-    sync::LazyLock,
 };
 
 use credentials::CredentialsHandle;
 use step::ContextHandle;
 use windows::{
-    core::PCWSTR,
+    core::{w, PCWSTR},
     Win32::Security::Authentication::Identity::{FreeContextBuffer, QuerySecurityPackageInfoW},
 };
 
@@ -19,12 +17,7 @@ mod buffer;
 mod credentials;
 mod step;
 
-static NEGOTIATE_ZERO_TERM_UTF16: LazyLock<Box<[u16]>> = LazyLock::new(|| {
-    OsStr::new("Negotiate")
-        .encode_wide()
-        .chain(std::iter::once(0))
-        .collect()
-});
+const NEGOTIATE_ZERO_TERM_UTF16: PCWSTR = w!("Negotiate");
 
 pub struct SecurityInfoHandle<'s>(&'s ContextHandle);
 impl SecurityInfoHandle<'_> {
