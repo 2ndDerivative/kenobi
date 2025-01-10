@@ -1,4 +1,4 @@
-use std::{ffi::OsString, fmt::Formatter};
+use std::{ffi::OsString, fmt::Formatter, time::SystemTime};
 
 mod step;
 #[cfg(unix)]
@@ -20,6 +20,9 @@ pub struct FinishedContext(sys::FinishedContext);
 impl FinishedContext {
     pub fn client_target(&self) -> Result<OsString, String> {
         self.0.client_target()
+    }
+    pub fn expires(&self) -> SystemTime {
+        self.0.expires()
     }
 }
 impl std::fmt::Debug for FinishedContext {

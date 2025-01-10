@@ -5,7 +5,7 @@ use std::{
 
 use windows::Win32::{
     Foundation::{
-        SEC_E_INCOMPLETE_MESSAGE, SEC_E_INSUFFICIENT_MEMORY, SEC_E_INTERNAL_ERROR, SEC_E_INVALID_HANDLE,
+        FILETIME, SEC_E_INCOMPLETE_MESSAGE, SEC_E_INSUFFICIENT_MEMORY, SEC_E_INTERNAL_ERROR, SEC_E_INVALID_HANDLE,
         SEC_E_INVALID_TOKEN, SEC_E_LOGON_DENIED, SEC_E_NO_AUTHENTICATING_AUTHORITY, SEC_E_NO_CREDENTIALS, SEC_E_OK,
         SEC_E_UNSUPPORTED_FUNCTION,
     },
@@ -16,6 +16,7 @@ use windows::Win32::{
         },
         Credentials::SecHandle,
     },
+    Storage::FileSystem::LocalFileTimeToFileTime,
 };
 
 use crate::{step::StepError, windows::buffer::SecurityBuffer, StepResult, StepSuccess};
@@ -39,6 +40,7 @@ impl ContextHandle {
             Some(bx) => MaybeUninit::new(ManuallyDrop::new(bx).0),
             None => MaybeUninit::uninit(),
         };
+        let mut file_time_local = 0;
         let res = unsafe {
             // step() consumes the Context, therefore all of these references as pointers should be thread safe
             AcceptSecurityContext(
@@ -50,10 +52,11 @@ impl ContextHandle {
                 Some(mut_context.as_mut_ptr()),
                 Some(&mut out_buf.description()),
                 &mut attr_flags,
-                Some(&mut 0),
+                Some(&mut file_time_local),
             )
         };
         let context = Self(unsafe { mut_context.assume_init() });
+        let expires = raw_local_file_time_to_utc(file_time_local);
         let is_done = match res {
             SEC_E_OK => true,
             SEC_E_INCOMPLETE_MESSAGE => return Err(StepError::IncompleteMessage),
@@ -78,7 +81,7 @@ impl ContextHandle {
         let response_token = (!out_buf.is_empty()).then_some(out_buf.as_ref().into());
         if is_done {
             Ok(StepSuccess::Finished(
-                crate::FinishedContext(FinishedContext { context }),
+                crate::FinishedContext(FinishedContext { context, expires }),
                 response_token,
             ))
         } else {
@@ -93,6 +96,12 @@ impl ContextHandle {
             ))
         }
     }
+}
+fn raw_local_file_time_to_utc(raw_time: i64) -> FILETIME {
+    let file_time_local = unsafe { std::mem::transmute::<i64, FILETIME>(raw_time) };
+    let mut result = MaybeUninit::uninit();
+    unsafe { LocalFileTimeToFileTime(&file_time_local, result.as_mut_ptr()).unwrap() };
+    unsafe { result.assume_init() }
 }
 impl Drop for ContextHandle {
     fn drop(&mut self) {

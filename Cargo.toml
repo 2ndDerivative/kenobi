@@ -12,4 +12,5 @@ windows = { version = "0.58", features = [
     "Win32_Globalization",
     "Win32_Security_Authentication_Identity",
     "Win32_Security_Credentials",
+    "Win32_Storage_FileSystem"
 ] }

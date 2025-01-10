@@ -1,13 +1,17 @@
 use std::{
     ffi::{c_void, OsString},
     fmt::Formatter,
+    time::SystemTime,
 };
 
 use credentials::CredentialsHandle;
 use step::ContextHandle;
 use windows::{
     core::{w, PCWSTR},
-    Win32::Security::Authentication::Identity::{FreeContextBuffer, QuerySecurityPackageInfoW},
+    Win32::{
+        Foundation::FILETIME,
+        Security::Authentication::Identity::{FreeContextBuffer, QuerySecurityPackageInfoW},
+    },
 };
 
 use crate::{SecurityInfo, StepError, StepResult};
@@ -89,10 +93,14 @@ impl PendingContext {
 
 pub struct FinishedContext {
     context: ContextHandle,
+    expires: FILETIME,
 }
 impl FinishedContext {
     pub fn client_target(&self) -> Result<OsString, String> {
         attributes::client_target(&self.context)
+    }
+    pub fn expires(&self) -> SystemTime {
+        unsafe { std::mem::transmute(self.expires) }
     }
 }
 

@@ -1,4 +1,4 @@
-use std::{ffi::OsString, marker::PhantomData};
+use std::{ffi::OsString, marker::PhantomData, time::SystemTime};
 
 use crate::{SecurityInfo, StepError, StepResult};
 
@@ -28,6 +28,9 @@ impl PendingContext {
 pub struct FinishedContext;
 impl FinishedContext {
     pub fn client_target(&self) -> Result<OsString, String> {
+        unimplemented!()
+    }
+    pub fn expires(&self) -> SystemTime {
         unimplemented!()
     }
 }
