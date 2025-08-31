@@ -4,7 +4,7 @@ mod step;
 #[cfg(unix)]
 mod unix;
 #[cfg(windows)]
-mod windows;
+pub mod windows;
 
 #[cfg(unix)]
 use unix as sys;
@@ -24,6 +24,12 @@ impl FinishedContext {
     pub fn expires(&self) -> SystemTime {
         self.0.expires()
     }
+    #[cfg(windows)]
+    pub fn impersonate(
+        &self,
+    ) -> Result<windows::impersonate::ImpersonationGuard<'_>, windows::impersonate::ImpersonationFailed> {
+        self.0.impersonate()
+    }
 }
 impl std::fmt::Debug for FinishedContext {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -31,7 +37,7 @@ impl std::fmt::Debug for FinishedContext {
     }
 }
 impl SecurityInfo for FinishedContext {
-    fn security_info(&self) -> SecurityInfoHandle {
+    fn security_info(&'_ self) -> SecurityInfoHandle<'_> {
         self.0.security_info()
     }
 }
@@ -42,7 +48,7 @@ impl std::fmt::Debug for PendingContext {
     }
 }
 impl SecurityInfo for PendingContext {
-    fn security_info(&self) -> SecurityInfoHandle {
+    fn security_info(&'_ self) -> SecurityInfoHandle<'_> {
         self.0.security_info()
     }
 }
@@ -52,7 +58,7 @@ pub use step::{Step, StepError, StepSuccess};
 pub type StepResult = Result<StepSuccess, StepError>;
 
 pub trait SecurityInfo {
-    fn security_info(&self) -> SecurityInfoHandle;
+    fn security_info(&'_ self) -> SecurityInfoHandle<'_>;
     #[cfg(windows)]
     fn client_name(&self) -> Result<OsString, String> {
         self.security_info().0.client_name()

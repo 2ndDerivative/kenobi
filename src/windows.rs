@@ -19,30 +19,31 @@ use crate::{SecurityInfo, StepError, StepResult};
 mod attributes;
 mod buffer;
 mod credentials;
+pub mod impersonate;
 mod step;
 
 const NEGOTIATE_ZERO_TERM_UTF16: PCWSTR = w!("Negotiate");
 
-pub struct SecurityInfoHandle<'s>(&'s ContextHandle);
+pub(crate) struct SecurityInfoHandle<'s>(&'s ContextHandle);
 impl SecurityInfoHandle<'_> {
-    pub(crate) fn client_name(&self) -> Result<OsString, String> {
+    pub fn client_name(&self) -> Result<OsString, String> {
         attributes::client_name(self.0)
     }
-    pub(crate) fn client_native_name(&self) -> Result<OsString, String> {
+    pub fn client_native_name(&self) -> Result<OsString, String> {
         attributes::client_native_name(self.0)
     }
-    pub(crate) fn server_native_name(&self) -> Result<OsString, String> {
+    pub fn server_native_name(&self) -> Result<OsString, String> {
         attributes::server_native_name(self.0)
     }
 }
 
-pub struct ContextBuilder {
+pub(crate) struct ContextBuilder {
     credentials: CredentialsHandle,
     max_context_length: usize,
 }
 
 impl ContextBuilder {
-    pub fn new(principal: Option<&str>) -> Result<Self, String> {
+    pub(crate) fn new(principal: Option<&str>) -> Result<Self, String> {
         let credentials = CredentialsHandle::new(principal)?;
         let max_context_length = unsafe {
             let info = QuerySecurityPackageInfoW(PCWSTR(NEGOTIATE_ZERO_TERM_UTF16.as_ptr().cast()))
@@ -67,7 +68,7 @@ impl ContextBuilder {
     }
 }
 
-pub struct PendingContext {
+pub(crate) struct PendingContext {
     credentials: CredentialsHandle,
     context: ContextHandle,
     buffer: Box<[u8]>,
@@ -75,7 +76,7 @@ pub struct PendingContext {
 }
 
 impl SecurityInfo for PendingContext {
-    fn security_info(&self) -> crate::SecurityInfoHandle {
+    fn security_info(&'_ self) -> crate::SecurityInfoHandle<'_> {
         crate::SecurityInfoHandle(SecurityInfoHandle(&self.context))
     }
 }
@@ -91,21 +92,21 @@ impl PendingContext {
     }
 }
 
-pub struct FinishedContext {
+pub(crate) struct FinishedContext {
     context: ContextHandle,
     expires: FILETIME,
 }
 impl FinishedContext {
-    pub fn client_target(&self) -> Result<OsString, String> {
+    pub(crate) fn client_target(&self) -> Result<OsString, String> {
         attributes::client_target(&self.context)
     }
-    pub fn expires(&self) -> SystemTime {
+    pub(crate) fn expires(&self) -> SystemTime {
         unsafe { std::mem::transmute(self.expires) }
     }
 }
 
 impl SecurityInfo for FinishedContext {
-    fn security_info(&self) -> crate::SecurityInfoHandle {
+    fn security_info(&'_ self) -> crate::SecurityInfoHandle<'_> {
         crate::SecurityInfoHandle(SecurityInfoHandle(&self.context))
     }
 }
