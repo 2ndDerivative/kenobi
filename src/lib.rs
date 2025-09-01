@@ -94,7 +94,6 @@ fn step(
     // Misc outputs
     let mut negotiated_context_flags = MaybeUninit::uninit();
     let mut expiry = MaybeUninit::uninit();
-
     let asc_result = unsafe {
         AcceptSecurityContext(
             Some(&credentials_handle.sec_handle()),
@@ -111,7 +110,6 @@ fn step(
             Some(expiry.as_mut_ptr()),
         )
     };
-    println!("Finished AcceptSecurityContext");
     match asc_result {
         SEC_E_OK => {
             // These are all set after successful operation

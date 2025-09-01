@@ -106,8 +106,17 @@ pub struct OwnedSecurityBuffers(Box<[SecBuffer]>);
 pub struct SspiAllocatedSecurityBuffers(SecBufferDesc);
 impl Drop for SspiAllocatedSecurityBuffers {
     fn drop(&mut self) {
-        unsafe {
-            let _ = FreeContextBuffer((&raw mut self.0).cast());
+        let array_pointer = self.0.pBuffers;
+        if !array_pointer.is_null() {
+            unsafe {
+                let arr = std::slice::from_raw_parts_mut(array_pointer, self.0.cBuffers as usize);
+                for buffer in arr {
+                    if !buffer.pvBuffer.is_null() {
+                        let _ = FreeContextBuffer(buffer.pvBuffer.cast());
+                    }
+                }
+                let _ = FreeContextBuffer(array_pointer.cast());
+            }
         }
     }
 }

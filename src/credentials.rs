@@ -37,7 +37,6 @@ impl CredentialsHandle {
                 Some(expiry.as_mut_ptr()),
             )
         }?;
-        println!("Acquired credentials!");
         let handle = unsafe { cred_handle.assume_init() };
         let expiry = unsafe { expiry.assume_init() };
         Ok(CredentialsHandle { handle, expiry })
