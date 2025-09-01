@@ -18,10 +18,12 @@ pub use settings::{ServerSettings, TargetDataRep};
 use crate::{
     buffer::{MaybeAllocatedBuffer, ReadOnlySecBuffer},
     credentials::CredentialsHandle,
+    impersonate::Impersonation,
 };
 
 mod buffer;
 mod credentials;
+mod impersonate;
 mod settings;
 
 pub fn new_server_context(spn: &OsStr, settings: ServerSettings, token: &[u8]) -> Result<StepOk, StartContextError> {
@@ -42,6 +44,11 @@ pub struct FinishedServerContext {
     context_handle: SecHandle,
     expiry: i64,
     negotiated_flags: u32,
+}
+impl FinishedServerContext {
+    pub fn impersonate(&mut self) -> Result<Impersonation<'_>, windows::core::Error> {
+        Impersonation::new(self)
+    }
 }
 
 pub struct PendingServerContext {
