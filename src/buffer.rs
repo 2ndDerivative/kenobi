@@ -102,8 +102,14 @@ union SecurityBuffers {
 }
 
 pub struct OwnedSecurityBuffers(Box<[SecBuffer]>);
+unsafe impl Send for OwnedSecurityBuffers {}
+unsafe impl Sync for OwnedSecurityBuffers {}
 
 pub struct SspiAllocatedSecurityBuffers(SecBufferDesc);
+
+// Is effectively an owning pointer, so can be shared
+unsafe impl Send for SspiAllocatedSecurityBuffers {}
+unsafe impl Sync for SspiAllocatedSecurityBuffers {}
 impl Drop for SspiAllocatedSecurityBuffers {
     fn drop(&mut self) {
         let array_pointer = self.0.pBuffers;

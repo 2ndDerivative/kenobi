@@ -1,4 +1,4 @@
-use std::{ffi::OsStr, marker::PhantomData, mem::MaybeUninit};
+use std::{ffi::OsStr, mem::MaybeUninit};
 
 use windows::Win32::{
     Foundation::{
@@ -37,7 +37,6 @@ pub fn new_server_context(spn: &OsStr, settings: ServerSettings, token: &[u8]) -
 }
 
 pub struct FinishedServerContext {
-    _not_threadsafe_marker: PhantomData<*const ()>,
     credentials_handle: CredentialsHandle,
     buffer_and_settings: MaybeAllocatedBuffer,
     context_handle: SecHandle,
@@ -46,7 +45,6 @@ pub struct FinishedServerContext {
 }
 
 pub struct PendingServerContext {
-    _not_threadsafe_marker: PhantomData<*const ()>,
     credentials_handle: CredentialsHandle,
     buffer_and_settings: MaybeAllocatedBuffer,
     context_handle: SecHandle,
@@ -117,7 +115,6 @@ fn step(
             let expiry = unsafe { expiry.assume_init() };
             let negotiated_flags = unsafe { negotiated_context_flags.assume_init() };
             Ok(StepOk::Finished(FinishedServerContext {
-                _not_threadsafe_marker: PhantomData,
                 credentials_handle,
                 buffer_and_settings,
                 context_handle,
