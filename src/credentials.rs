@@ -2,16 +2,19 @@ use std::{ffi::OsStr, mem::MaybeUninit, os::windows::ffi::OsStrExt};
 
 use windows::{
     core::{w, PCWSTR},
-    Win32::Security::{
-        Authentication::Identity::{AcquireCredentialsHandleW, FreeCredentialsHandle, SECPKG_CRED_INBOUND},
-        Credentials::SecHandle,
+    Win32::{
+        Foundation::FILETIME,
+        Security::{
+            Authentication::Identity::{AcquireCredentialsHandleW, FreeCredentialsHandle, SECPKG_CRED_INBOUND},
+            Credentials::SecHandle,
+        },
     },
 };
 
 #[derive(Clone, Debug)]
 pub struct CredentialsHandle {
     handle: SecHandle,
-    expiry: i64,
+    expiry: FILETIME,
 }
 impl Drop for CredentialsHandle {
     fn drop(&mut self) {
@@ -39,9 +42,13 @@ impl CredentialsHandle {
         }?;
         let handle = unsafe { cred_handle.assume_init() };
         let expiry = unsafe { expiry.assume_init() };
+        let expiry = unsafe { std::mem::transmute::<i64, FILETIME>(expiry) };
         Ok(CredentialsHandle { handle, expiry })
     }
     pub fn sec_handle(&self) -> SecHandle {
         self.handle
+    }
+    pub fn expiry_time(&self) -> FILETIME {
+        self.expiry
     }
 }

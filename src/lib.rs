@@ -2,7 +2,7 @@ use std::{ffi::OsStr, mem::MaybeUninit};
 
 use windows::Win32::{
     Foundation::{
-        SEC_E_INSUFFICIENT_MEMORY, SEC_E_INVALID_PARAMETER, SEC_E_INVALID_TOKEN, SEC_E_LOGON_DENIED, SEC_E_OK,
+        FILETIME, SEC_E_INSUFFICIENT_MEMORY, SEC_E_INVALID_PARAMETER, SEC_E_INVALID_TOKEN, SEC_E_LOGON_DENIED, SEC_E_OK,
     },
     Security::{
         Authentication::Identity::{
@@ -42,12 +42,18 @@ pub struct FinishedServerContext {
     credentials_handle: CredentialsHandle,
     buffer_and_settings: MaybeAllocatedBuffer,
     context_handle: SecHandle,
-    expiry: i64,
+    expiry: FILETIME,
     negotiated_flags: u32,
 }
 impl FinishedServerContext {
     pub fn impersonate_client(&mut self) -> Result<Impersonation<'_>, windows::core::Error> {
         Impersonation::new(self)
+    }
+    pub fn expiry_time(&self) -> FILETIME {
+        self.expiry
+    }
+    pub fn credentials_handle(&self) -> &CredentialsHandle {
+        &self.credentials_handle
     }
 }
 
@@ -125,7 +131,7 @@ fn step(
                 credentials_handle,
                 buffer_and_settings,
                 context_handle,
-                expiry,
+                expiry: unsafe { std::mem::transmute::<i64, FILETIME>(expiry) },
                 negotiated_flags,
             }))
         }

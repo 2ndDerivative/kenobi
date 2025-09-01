@@ -1,4 +1,4 @@
-use std::{ffi::c_void, marker::PhantomData, mem::ManuallyDrop};
+use std::{borrow::Cow, ffi::c_void, marker::PhantomData, mem::ManuallyDrop};
 
 use windows::{
     core::w,
@@ -78,6 +78,21 @@ impl MaybeAllocatedBuffer {
                 cBuffers: boxed_slice.len() as u32,
                 pBuffers: boxed_slice.as_mut_ptr(),
             }
+        }
+    }
+    pub fn as_slice(&self) -> Cow<'_, [u8]> {
+        if self.settings.lets_sspi_allocate() {
+            let buffer_desc = unsafe { self.buffers.from_sspi.0 };
+            let buffer_array =
+                unsafe { std::slice::from_raw_parts(buffer_desc.pBuffers, buffer_desc.cBuffers as usize) };
+            let mut cow = None;
+            for buffer in buffer_array.iter().filter(|b| b.BufferType == SECBUFFER_TOKEN) {
+                let buf_bytearray =
+                    unsafe { std::slice::from_raw_parts(buffer.pvBuffer as *const u8, buffer.cbBuffer as usize) };
+            }
+            todo!()
+        } else {
+            todo!()
         }
     }
 }
