@@ -46,7 +46,7 @@ pub struct FinishedServerContext {
     negotiated_flags: u32,
 }
 impl FinishedServerContext {
-    pub fn impersonate(&mut self) -> Result<Impersonation<'_>, windows::core::Error> {
+    pub fn impersonate_client(&mut self) -> Result<Impersonation<'_>, windows::core::Error> {
         Impersonation::new(self)
     }
 }
