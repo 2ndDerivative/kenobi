@@ -16,6 +16,7 @@ use windows::{
 
 use crate::{SecurityInfo, StepError, StepResult};
 
+mod access_token;
 mod attributes;
 mod buffer;
 mod credentials;
@@ -33,6 +34,9 @@ impl SecurityInfoHandle<'_> {
     }
     pub(crate) fn server_native_name(&self) -> Result<OsString, String> {
         attributes::server_native_name(self.0)
+    }
+    pub(crate) fn access_token(&self) -> Result<OsString, String> {
+        attributes::access_token(self.0)?.get_sid()
     }
 }
 
@@ -75,7 +79,7 @@ pub struct PendingContext {
 }
 
 impl SecurityInfo for PendingContext {
-    fn security_info(&self) -> crate::SecurityInfoHandle {
+    fn security_info(&'_ self) -> crate::SecurityInfoHandle<'_> {
         crate::SecurityInfoHandle(SecurityInfoHandle(&self.context))
     }
 }
@@ -105,7 +109,7 @@ impl FinishedContext {
 }
 
 impl SecurityInfo for FinishedContext {
-    fn security_info(&self) -> crate::SecurityInfoHandle {
+    fn security_info(&'_ self) -> crate::SecurityInfoHandle<'_> {
         crate::SecurityInfoHandle(SecurityInfoHandle(&self.context))
     }
 }

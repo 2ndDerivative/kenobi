@@ -9,14 +9,15 @@ use windows::{
     Win32::{
         Globalization::lstrlenW,
         Security::Authentication::Identity::{
-            QueryContextAttributesExW, SecPkgContext_ClientSpecifiedTarget, SecPkgContext_NamesW,
-            SecPkgContext_NativeNamesW, SECPKG_ATTR, SECPKG_ATTR_CLIENT_SPECIFIED_TARGET, SECPKG_ATTR_NAMES,
-            SECPKG_ATTR_NATIVE_NAMES,
+            QueryContextAttributesExW, SecPkgContext_AccessToken,
+            SecPkgContext_ClientSpecifiedTarget, SecPkgContext_NamesW, SecPkgContext_NativeNamesW,
+            SECPKG_ATTR, SECPKG_ATTR_ACCESS_TOKEN, SECPKG_ATTR_CLIENT_SPECIFIED_TARGET,
+            SECPKG_ATTR_NAMES, SECPKG_ATTR_NATIVE_NAMES,
         },
     },
 };
 
-use super::step::ContextHandle;
+use super::{access_token::AccessToken, step::ContextHandle};
 
 pub fn client_target(sec_handle: &ContextHandle) -> Result<OsString, String> {
     let target = get_attribute::<SecPkgContext_ClientSpecifiedTarget>(sec_handle)?;
@@ -35,6 +36,10 @@ pub fn client_native_name(sec_handle: &ContextHandle) -> Result<OsString, String
 pub fn server_native_name(sec_handle: &ContextHandle) -> Result<OsString, String> {
     let target = get_attribute::<SecPkgContext_NativeNamesW>(sec_handle)?;
     Ok(unsafe { string_from_wstr(target.sServerName) })
+}
+pub fn access_token(sec_handle: &ContextHandle) -> Result<AccessToken, String> {
+    let target = get_attribute::<SecPkgContext_AccessToken>(sec_handle)?;
+    Ok(AccessToken::new(target))
 }
 
 fn get_attribute<T: SecPkgAttribute>(sec_handle: &ContextHandle) -> Result<T, String> {
@@ -68,6 +73,9 @@ unsafe impl SecPkgAttribute for SecPkgContext_NativeNamesW {
 }
 unsafe impl SecPkgAttribute for SecPkgContext_ClientSpecifiedTarget {
     const SEC_PKG_ATTRIBUTE: SECPKG_ATTR = SECPKG_ATTR_CLIENT_SPECIFIED_TARGET;
+}
+unsafe impl SecPkgAttribute for SecPkgContext_AccessToken {
+    const SEC_PKG_ATTRIBUTE: SECPKG_ATTR = SECPKG_ATTR_ACCESS_TOKEN;
 }
 
 /// # Safety

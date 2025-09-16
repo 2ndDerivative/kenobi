@@ -31,7 +31,7 @@ impl std::fmt::Debug for FinishedContext {
     }
 }
 impl SecurityInfo for FinishedContext {
-    fn security_info(&self) -> SecurityInfoHandle {
+    fn security_info(&'_ self) -> SecurityInfoHandle<'_> {
         self.0.security_info()
     }
 }
@@ -42,7 +42,7 @@ impl std::fmt::Debug for PendingContext {
     }
 }
 impl SecurityInfo for PendingContext {
-    fn security_info(&self) -> SecurityInfoHandle {
+    fn security_info(&'_ self) -> SecurityInfoHandle<'_> {
         self.0.security_info()
     }
 }
@@ -52,7 +52,7 @@ pub use step::{Step, StepError, StepSuccess};
 pub type StepResult = Result<StepSuccess, StepError>;
 
 pub trait SecurityInfo {
-    fn security_info(&self) -> SecurityInfoHandle;
+    fn security_info(&'_ self) -> SecurityInfoHandle<'_>;
     #[cfg(windows)]
     fn client_name(&self) -> Result<OsString, String> {
         self.security_info().0.client_name()
@@ -64,5 +64,9 @@ pub trait SecurityInfo {
     #[cfg(windows)]
     fn server_native_name(&self) -> Result<OsString, String> {
         self.security_info().0.server_native_name()
+    }
+    #[cfg(windows)]
+    fn access_token(&self) -> Result<OsString, String> {
+        self.security_info().0.access_token()
     }
 }
