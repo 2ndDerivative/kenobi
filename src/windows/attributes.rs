@@ -56,6 +56,8 @@ fn get_attribute<T: SecPkgAttribute>(sec_handle: &ContextHandle) -> Result<T, St
             size_of::<MaybeUninit<T>>() as u32,
         )
         .map_err(|e| e.message())?;
+        #[cfg(feature = "tracing")]
+        tracing::debug!("Security package extraction returned OK");
         Ok(target.assume_init())
     }
 }
