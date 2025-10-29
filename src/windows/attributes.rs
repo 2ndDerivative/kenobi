@@ -9,10 +9,9 @@ use windows::{
     Win32::{
         Globalization::lstrlenW,
         Security::Authentication::Identity::{
-            QueryContextAttributesExW, SecPkgContext_AccessToken,
-            SecPkgContext_ClientSpecifiedTarget, SecPkgContext_NamesW, SecPkgContext_NativeNamesW,
-            SECPKG_ATTR, SECPKG_ATTR_ACCESS_TOKEN, SECPKG_ATTR_CLIENT_SPECIFIED_TARGET,
-            SECPKG_ATTR_NAMES, SECPKG_ATTR_NATIVE_NAMES,
+            QueryContextAttributesExW, SecPkgContext_AccessToken, SecPkgContext_ClientSpecifiedTarget,
+            SecPkgContext_NamesW, SecPkgContext_NativeNamesW, SECPKG_ATTR, SECPKG_ATTR_ACCESS_TOKEN,
+            SECPKG_ATTR_CLIENT_SPECIFIED_TARGET, SECPKG_ATTR_NAMES, SECPKG_ATTR_NATIVE_NAMES,
         },
     },
 };
@@ -47,6 +46,8 @@ fn get_attribute<T: SecPkgAttribute>(sec_handle: &ContextHandle) -> Result<T, St
     // # Safety
     //
     // Memory being valid for the specific type is enforced in the SecPkgAttribute trait
+    #[cfg(feature = "tracing")]
+    tracing::debug!(package = T::SEC_PKG_ATTRIBUTE, "Extracting security package attribute");
     unsafe {
         QueryContextAttributesExW(
             sec_handle.as_ref(),
