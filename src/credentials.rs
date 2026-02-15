@@ -1,54 +1,71 @@
-use std::{ffi::OsStr, mem::MaybeUninit, os::windows::ffi::OsStrExt};
-
 use windows::{
-    core::{w, PCWSTR},
-    Win32::{
-        Foundation::FILETIME,
-        Security::{
-            Authentication::Identity::{AcquireCredentialsHandleW, FreeCredentialsHandle, SECPKG_CRED_INBOUND},
-            Credentials::SecHandle,
+    Win32::Security::{
+        Authentication::Identity::{
+            AcquireCredentialsHandleW, FreeCredentialsHandle, SECPKG_CRED, SECPKG_CRED_BOTH, SECPKG_CRED_INBOUND,
+            SECPKG_CRED_OUTBOUND,
         },
+        Credentials::SecHandle,
     },
+    core::PCWSTR,
 };
 
-#[derive(Clone, Debug)]
-pub struct CredentialsHandle {
-    handle: SecHandle,
-    expiry: FILETIME,
-}
-impl Drop for CredentialsHandle {
-    fn drop(&mut self) {
-        let _ = unsafe { FreeCredentialsHandle(&self.handle) };
-    }
-}
-impl CredentialsHandle {
-    pub fn acquire(spn: &OsStr) -> Result<CredentialsHandle, windows_result::Error> {
-        let principal_buf: Vec<u16> = spn.encode_wide().chain(std::iter::once(0)).collect();
-        let principal = PCWSTR(principal_buf.as_ptr());
-        let mut cred_handle = MaybeUninit::uninit();
-        let mut expiry = MaybeUninit::uninit();
+use crate::NEGOTIATE;
+
+pub struct Credentials(SecHandle, i64);
+impl Credentials {
+    pub fn acquire_default(usage: CredentialsUsage, principal: Option<&str>) -> Credentials {
+        let mut cred_handle = SecHandle::default();
+        let mut expiry = 0;
+        let princ_wide = principal.map(crate::to_wide);
+        let princ_ref = princ_wide.as_ref().map(|b| b.as_ptr());
         unsafe {
             AcquireCredentialsHandleW(
-                principal,
-                w!("Negotiate"),
-                SECPKG_CRED_INBOUND,
+                PCWSTR(princ_ref.unwrap_or_default()),
+                NEGOTIATE,
+                usage.to_windows(),
                 None,
                 None,
                 None,
                 None,
-                cred_handle.as_mut_ptr(),
-                Some(expiry.as_mut_ptr()),
+                &mut cred_handle,
+                Some(&mut expiry),
             )
-        }?;
-        let handle = unsafe { cred_handle.assume_init() };
-        let expiry = unsafe { expiry.assume_init() };
-        let expiry = unsafe { std::mem::transmute::<i64, FILETIME>(expiry) };
-        Ok(CredentialsHandle { handle, expiry })
+            .unwrap();
+        }
+        Self(cred_handle, expiry)
     }
-    pub fn sec_handle(&self) -> SecHandle {
-        self.handle
+    pub(crate) fn raw_handle(&self) -> &SecHandle {
+        &self.0
     }
-    pub fn expiry_time(&self) -> FILETIME {
-        self.expiry
+}
+impl AsRef<Credentials> for Credentials {
+    fn as_ref(&self) -> &Credentials {
+        self
+    }
+}
+impl Drop for Credentials {
+    fn drop(&mut self) {
+        let _ = unsafe { FreeCredentialsHandle(&self.0) };
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum CredentialsUsage {
+    Inbound,
+    Outbound,
+    Both,
+}
+impl CredentialsUsage {
+    pub(crate) const fn to_windows(self) -> SECPKG_CRED {
+        match self {
+            CredentialsUsage::Both => SECPKG_CRED(SECPKG_CRED_BOTH),
+            CredentialsUsage::Inbound => SECPKG_CRED_INBOUND,
+            CredentialsUsage::Outbound => SECPKG_CRED_OUTBOUND,
+        }
+    }
+}
+impl From<CredentialsUsage> for SECPKG_CRED {
+    fn from(value: CredentialsUsage) -> Self {
+        value.to_windows()
     }
 }

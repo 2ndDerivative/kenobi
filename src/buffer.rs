@@ -1,143 +1,102 @@
-use std::{borrow::Cow, ffi::c_void, marker::PhantomData, mem::ManuallyDrop};
+use std::{ffi::c_void, fmt::Debug, slice, sync::LazyLock};
 
-use windows::{
-    core::w,
-    Win32::Security::Authentication::Identity::{
-        FreeContextBuffer, QuerySecurityPackageInfoW, SecBuffer, SecBufferDesc, SECBUFFER_READONLY, SECBUFFER_TOKEN,
-        SECBUFFER_VERSION,
-    },
+use windows::Win32::Security::Authentication::Identity::{
+    FreeContextBuffer, QuerySecurityPackageInfoW, SECBUFFER_TOKEN, SECBUFFER_VERSION, SecBufferDesc,
 };
 
-use crate::ServerSettings;
+use crate::NEGOTIATE;
 
-pub struct ReadOnlySecBuffer<'ro> {
-    _lifetime: PhantomData<&'ro [u8]>,
-    buffer: SecBuffer,
-}
-impl<'ro> ReadOnlySecBuffer<'ro> {
-    pub fn from_slice(ro: &'ro [u8]) -> Result<ReadOnlySecBuffer<'ro>, TokenTooLong> {
-        Ok(Self {
-            _lifetime: PhantomData,
-            buffer: SecBuffer {
-                cbBuffer: ro.len().try_into().map_err(|_| TokenTooLong)?,
-                BufferType: SECBUFFER_TOKEN | SECBUFFER_READONLY,
-                pvBuffer: ro.as_ptr() as *mut c_void,
-            },
-        })
-    }
-    pub fn buffer_mut(&mut self) -> &mut SecBuffer {
-        &mut self.buffer
-    }
+static MAX_BUFFER_SIZE: LazyLock<windows_result::Result<u32>> = LazyLock::new(get_max_buffer_size);
+fn get_max_buffer_size() -> windows_result::Result<u32> {
+    let buf = unsafe { QuerySecurityPackageInfoW(NEGOTIATE)? };
+    let size = unsafe { (*buf).cbMaxToken };
+    unsafe { FreeContextBuffer(buf as *mut c_void)? };
+    Ok(size)
 }
 
+#[repr(C)]
 #[derive(Debug)]
-pub struct TokenTooLong;
+pub struct RustSecBuffer {
+    size: u32,
+    pub(crate) buffer_type: u32,
+    ptr: *mut c_void,
+}
+impl RustSecBuffer {
+    pub fn new_for_token() -> windows_result::Result<Self> {
+        let size = MAX_BUFFER_SIZE.clone()?;
+        Ok(Self::new_with_size(SECBUFFER_TOKEN, size))
+    }
+    fn new_with_size(r#type: u32, size: u32) -> Self {
+        let zeroed: Box<[u8]> = unsafe { Box::new_zeroed_slice(size as usize).assume_init() };
+        let b: *mut [u8] = Box::into_raw(zeroed);
+        RustSecBuffer {
+            size,
+            buffer_type: r#type,
+            ptr: b as *mut c_void,
+        }
+    }
+    pub fn reformat_as_input(&mut self) {
+        self.size = MAX_BUFFER_SIZE.clone().unwrap();
+    }
+    pub fn as_slice(&self) -> &[u8] {
+        unsafe { slice::from_raw_parts(self.ptr as *mut u8, self.size as usize) }
+    }
+    pub fn as_mut_slice(&mut self) -> &mut [u8] {
+        unsafe { slice::from_raw_parts_mut(self.ptr as *mut u8, self.size as usize) }
+    }
+}
 
-/// To join the drop glue for the buffers
-pub struct MaybeAllocatedBuffer {
-    settings: ServerSettings,
-    buffers: SecurityBuffers,
-}
-impl MaybeAllocatedBuffer {
-    pub fn new(settings: ServerSettings) -> Result<Self, windows::core::Error> {
-        let buffers = if settings.lets_sspi_allocate() {
-            SecurityBuffers {
-                from_sspi: ManuallyDrop::new(SspiAllocatedSecurityBuffers(SecBufferDesc {
-                    ulVersion: SECBUFFER_VERSION,
-                    cBuffers: 0,
-                    pBuffers: std::ptr::null_mut(),
-                })),
-            }
-        } else {
-            let package_info = unsafe { QuerySecurityPackageInfoW(w!("Negotiate"))?.as_mut() }.unwrap();
-            let token_size = package_info.cbMaxToken as usize;
-            let _ = unsafe { FreeContextBuffer(std::ptr::from_mut(package_info).cast()) };
-            let token_allocation: Box<[u8]> = vec![0; token_size].into_boxed_slice();
-            let token_buffer = SecBuffer {
-                cbBuffer: token_allocation.len() as u32,
-                BufferType: SECBUFFER_TOKEN,
-                pvBuffer: Box::into_raw(token_allocation).cast(),
-            };
-            SecurityBuffers {
-                self_allocated: ManuallyDrop::new(OwnedSecurityBuffers(Box::new([token_buffer]))),
-            }
-        };
-        Ok(Self { settings, buffers })
-    }
-    pub fn server_settings(&self) -> ServerSettings {
-        self.settings
-    }
-    pub fn as_desc(&mut self) -> SecBufferDesc {
-        if self.settings.lets_sspi_allocate() {
-            unsafe { self.buffers.from_sspi.0 }
-        } else {
-            let buf = unsafe { &mut self.buffers.self_allocated };
-            let boxed_slice = &mut buf.0;
-            SecBufferDesc {
-                ulVersion: SECBUFFER_VERSION,
-                cBuffers: boxed_slice.len() as u32,
-                pBuffers: boxed_slice.as_mut_ptr(),
-            }
-        }
-    }
-    pub fn as_slice(&self) -> Cow<'_, [u8]> {
-        if self.settings.lets_sspi_allocate() {
-            let buffer_desc = unsafe { self.buffers.from_sspi.0 };
-            let buffer_array =
-                unsafe { std::slice::from_raw_parts(buffer_desc.pBuffers, buffer_desc.cBuffers as usize) };
-            let mut cow = None;
-            for buffer in buffer_array.iter().filter(|b| b.BufferType == SECBUFFER_TOKEN) {
-                let buf_bytearray =
-                    unsafe { std::slice::from_raw_parts(buffer.pvBuffer as *const u8, buffer.cbBuffer as usize) };
-            }
-            todo!()
-        } else {
-            todo!()
-        }
-    }
-}
-impl Drop for MaybeAllocatedBuffer {
+impl Drop for RustSecBuffer {
     fn drop(&mut self) {
-        if self.settings.lets_sspi_allocate() {
-            unsafe { ManuallyDrop::drop(&mut self.buffers.from_sspi) }
-        } else {
-            let array = unsafe { ManuallyDrop::take(&mut self.buffers.self_allocated).0 };
-            for SecBuffer { cbBuffer, pvBuffer, .. } in array {
-                let sec_buffer_array =
-                    unsafe { Vec::from_raw_parts(pvBuffer, cbBuffer as usize, cbBuffer as usize) }.into_boxed_slice();
-                drop(sec_buffer_array);
-            }
-        }
+        let arr = self.as_mut_slice();
+        drop(unsafe { Box::from_raw(arr) });
     }
 }
+unsafe impl Sync for RustSecBuffer {}
+unsafe impl Send for RustSecBuffer {}
 
-union SecurityBuffers {
-    self_allocated: ManuallyDrop<OwnedSecurityBuffers>,
-    from_sspi: ManuallyDrop<SspiAllocatedSecurityBuffers>,
+#[repr(C)]
+pub struct RustSecBuffers {
+    version: u32,
+    count: u32,
+    ptr: *mut RustSecBuffer,
 }
+impl RustSecBuffers {
+    pub fn new(buffers: Box<[RustSecBuffer]>) -> Self {
+        let ptr = Box::leak(buffers);
+        let count = ptr.len() as u32;
+        let ptr = ptr.as_mut_ptr();
+        RustSecBuffers {
+            version: SECBUFFER_VERSION,
+            count,
+            ptr,
+        }
+    }
+    pub fn as_slice(&self) -> &[RustSecBuffer] {
+        unsafe { std::slice::from_raw_parts(self.ptr, self.count as usize) }
+    }
+    pub fn as_mut_slice(&mut self) -> &mut [RustSecBuffer] {
+        unsafe { std::slice::from_raw_parts_mut(self.ptr, self.count as usize) }
+    }
 
-pub struct OwnedSecurityBuffers(Box<[SecBuffer]>);
-unsafe impl Send for OwnedSecurityBuffers {}
-unsafe impl Sync for OwnedSecurityBuffers {}
-
-pub struct SspiAllocatedSecurityBuffers(SecBufferDesc);
-
-// Is effectively an owning pointer, so can be shared
-unsafe impl Send for SspiAllocatedSecurityBuffers {}
-unsafe impl Sync for SspiAllocatedSecurityBuffers {}
-impl Drop for SspiAllocatedSecurityBuffers {
+    pub fn as_windows_ptr(&mut self) -> *mut SecBufferDesc {
+        unsafe { std::mem::transmute::<&mut RustSecBuffers, &mut SecBufferDesc>(self) }
+    }
+}
+impl Debug for RustSecBuffers {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut l = f.debug_list();
+        for entry in self.as_slice() {
+            l.entry(entry);
+        }
+        l.finish()
+    }
+}
+impl Drop for RustSecBuffers {
     fn drop(&mut self) {
-        let array_pointer = self.0.pBuffers;
-        if !array_pointer.is_null() {
-            unsafe {
-                let arr = std::slice::from_raw_parts_mut(array_pointer, self.0.cBuffers as usize);
-                for buffer in arr {
-                    if !buffer.pvBuffer.is_null() {
-                        let _ = FreeContextBuffer(buffer.pvBuffer.cast());
-                    }
-                }
-                let _ = FreeContextBuffer(array_pointer.cast());
-            }
-        }
+        let arr = self.as_mut_slice();
+        drop(unsafe { Box::from_raw(arr) });
     }
 }
+unsafe impl Sync for RustSecBuffers {}
+unsafe impl Send for RustSecBuffers {}

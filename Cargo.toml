@@ -1,18 +1,17 @@
 [package]
-name = "kenobi"
+name = "kenobi-windows"
+version = "0.2.0"
+edition = "2024"
+
 authors = ["Niclas Klugmann <niclas@klugmann.de>"]
-version = "0.1.1"
-edition = "2021"
-description = "A Windows Negotiate implementation. Forked off cross-krb5. Windows-only so far. WIP"
+description = "A Windows Negotiate implementation. Windows-only so far. WIP"
 keywords = ["windows", "sspi", "kerberos", "ntlm"]
 license = "MIT"
 repository = "https://github.com/2ndDerivative/kenobi"
 
 [dependencies]
-windows = { version = "0.59", features = [
-    "Win32_Globalization",
-    "Win32_Security_Authentication_Identity",
-    "Win32_Security_Credentials",
-    "Win32_Storage_FileSystem"
-] }
-windows-result = "0.3.4"
+windows-result = "0.4.1"
+
+[dependencies.windows]
+version = "0.62.2"
+features = ["Win32_Security_Authentication_Identity", "Win32_Security_Credentials"]
