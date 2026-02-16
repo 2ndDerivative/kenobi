@@ -19,6 +19,13 @@ impl SigningState for MaybeSigning {
     #[cfg(windows)]
     type Win = kenobi_windows::client::MaybeSign;
 }
+pub enum Signing {}
+impl SigningState for Signing {
+    #[cfg(unix)]
+    type Unix = kenobi_unix::client::CanSign;
+    #[cfg(windows)]
+    type Win = kenobi_windows::client::CanSign;
+}
 
 pub trait EncryptionState {
     #[cfg(windows)]
@@ -40,4 +47,11 @@ impl EncryptionState for MaybeEncryption {
     type Unix = kenobi_unix::client::MaybeEncrypt;
     #[cfg(windows)]
     type Win = kenobi_windows::client::MaybeEncrypt;
+}
+pub enum Encryption {}
+impl EncryptionState for Encryption {
+    #[cfg(unix)]
+    type Unix = kenobi_unix::client::CanEncrypt;
+    #[cfg(windows)]
+    type Win = kenobi_windows::client::CanEncrypt;
 }

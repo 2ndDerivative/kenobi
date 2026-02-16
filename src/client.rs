@@ -10,7 +10,9 @@ use kenobi_windows::{
 };
 
 pub use builder::ClientBuilder;
-pub use typestate::{EncryptionState, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, SigningState};
+pub use typestate::{
+    Encryption, EncryptionState, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, Signing, SigningState,
+};
 
 use crate::Credentials;
 
@@ -53,6 +55,54 @@ where
 {
     pub fn last_token(&self) -> Option<&[u8]> {
         self.inner.last_token()
+    }
+}
+#[cfg(windows)]
+impl<E: EncryptionState> ClientContext<MaybeSigning, E>
+where
+    E::Win: kenobi_windows::client::EncryptionPolicy,
+{
+    pub fn check_signing(self) -> Result<ClientContext<Signing, E>, ClientContext<NoSigning, E>> {
+        self.inner
+            .check_signing()
+            .map(|inner| ClientContext { inner })
+            .map_err(|inner| ClientContext { inner })
+    }
+}
+#[cfg(unix)]
+impl<E: EncryptionState> ClientContext<MaybeSigning, E>
+where
+    E::Unix: kenobi_unix::client::EncryptionPolicy,
+{
+    pub fn check_signing(self) -> Result<ClientContext<Signing, E>, ClientContext<NoSigning, E>> {
+        self.inner
+            .check_signing()
+            .map(|inner| ClientContext { inner })
+            .map_err(|inner| ClientContext { inner })
+    }
+}
+#[cfg(windows)]
+impl<S: SigningState> ClientContext<S, MaybeEncryption>
+where
+    S::Win: kenobi_windows::client::SigningPolicy,
+{
+    pub fn check_encryption(self) -> Result<ClientContext<S, Encryption>, ClientContext<S, NoEncryption>> {
+        self.inner
+            .check_encryption()
+            .map(|inner| ClientContext { inner })
+            .map_err(|inner| ClientContext { inner })
+    }
+}
+#[cfg(unix)]
+impl<S: SigningState> ClientContext<S, MaybeEncryption>
+where
+    S::Unix: kenobi_unix::client::SignPolicy,
+{
+    pub fn check_encryption(self) -> Result<ClientContext<S, Encryption>, ClientContext<S, NoEncryption>> {
+        self.inner
+            .check_encryption()
+            .map(|inner| ClientContext { inner })
+            .map_err(|inner| ClientContext { inner })
     }
 }
 
