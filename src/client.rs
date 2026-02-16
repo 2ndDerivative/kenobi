@@ -114,6 +114,18 @@ pub struct PendingClientContext<S: SigningState, E: EncryptionState> {
 }
 
 #[cfg(windows)]
+impl<S: SigningState, E: EncryptionState> PendingClientContext<S, E> {
+    pub fn next_token(&self) -> &[u8] {
+        self.inner.next_token()
+    }
+}
+#[cfg(unix)]
+impl<S: SigningState, E: EncryptionState> PendingClientContext<S, E> {
+    pub fn next_token(&self) -> &[u8] {
+        self.inner.next_token()
+    }
+}
+#[cfg(windows)]
 impl<S: SigningState, E: EncryptionState> PendingClientContext<S, E>
 where
     S::Win: kenobi_windows::client::SigningPolicy,
@@ -124,9 +136,6 @@ where
             WinStepOut::Completed(inner) => StepOut::Finished(ClientContext { inner }),
             WinStepOut::Pending(inner) => StepOut::Pending(PendingClientContext { inner }),
         }
-    }
-    pub fn next_token(&self) -> &[u8] {
-        self.inner.next_token()
     }
 }
 
@@ -141,9 +150,6 @@ where
             UnixStepOut::Finished(inner) => StepOut::Finished(ClientContext { inner }),
             UnixStepOut::Pending(inner) => StepOut::Pending(PendingClientContext { inner }),
         }
-    }
-    pub fn next_token(&self) -> &[u8] {
-        self.inner.next_token()
     }
 }
 
