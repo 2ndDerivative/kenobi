@@ -1,77 +1,76 @@
-use std::marker::PhantomData;
-
-use windows::Win32::Security::Authentication::Identity::ISC_REQ_MUTUAL_AUTH;
+#[cfg(windows)]
+use kenobi_windows::{client::NoDelegation, credentials::Credentials as WinCred};
 
 use crate::{
-    client::{
-        StepOut,
-        error::InitializeContextError,
-        typestate::{
-            CanEncrypt, CanSign, CannotEncrypt, CannotSign, Delegatable, DelegationPolicy, EncryptionPolicy,
-            MaybeEncrypt, MaybeSign, NoDelegation, SigningPolicy,
-        },
-    },
-    credentials::Credentials,
+    Credentials,
+    client::{EncryptionState, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, SigningState, StepOut},
 };
 
-pub struct ClientBuilder<Cred, E = CannotEncrypt, S = CannotSign, D = NoDelegation> {
-    cred: Cred,
-    target_principal: Option<Box<[u16]>>,
-    _enc: PhantomData<(E, S, D)>,
+#[cfg(unix)]
+use kenobi_unix::client::NoDelegation;
+
+pub struct ClientBuilder<S: SigningState, E: EncryptionState> {
+    #[cfg(windows)]
+    inner: kenobi_windows::client::ClientBuilder<WinCred, E::Win, S::Win, NoDelegation>,
+    #[cfg(unix)]
+    inner: kenobi_unix::client::ClientBuilder<S::Unix, E::Unix, NoDelegation>,
 }
-impl<Cred> ClientBuilder<Cred, CannotEncrypt, CannotSign, NoDelegation> {
-    pub fn new_from_credentials(cred: Cred, target_principal: Option<&str>) -> Self {
-        let target_principal = target_principal.map(crate::to_wide);
-        Self {
-            cred,
-            target_principal,
-            _enc: PhantomData,
-        }
+
+#[cfg(windows)]
+impl ClientBuilder<NoSigning, NoEncryption> {
+    pub fn new_from_credentials(
+        cred: Credentials,
+        target_principal: Option<&str>,
+    ) -> ClientBuilder<NoSigning, NoEncryption> {
+        let inner = kenobi_windows::client::ClientBuilder::new_from_credentials(cred.inner, target_principal);
+        ClientBuilder { inner }
     }
 }
-impl<Cred, S, D> ClientBuilder<Cred, CannotEncrypt, S, D> {
-    pub fn request_encryption(self) -> ClientBuilder<Cred, MaybeEncrypt, S, D> {
-        self.convert_policy()
+
+#[cfg(unix)]
+impl ClientBuilder<NoSigning, NoEncryption> {
+    pub fn new_from_credentials(
+        cred: Credentials,
+        target_principal: Option<&str>,
+    ) -> ClientBuilder<NoSigning, NoEncryption> {
+        let inner = kenobi_unix::client::ClientBuilder::new_from_credentials(cred.inner, target_principal).unwrap();
+        ClientBuilder { inner }
     }
 }
-impl<Cred, E, D> ClientBuilder<Cred, E, CannotSign, D> {
-    pub fn request_signing(self) -> ClientBuilder<Cred, E, MaybeSign, D> {
-        self.convert_policy()
+
+impl<E: EncryptionState> ClientBuilder<NoSigning, E> {
+    pub fn request_signing(self) -> ClientBuilder<MaybeSigning, E> {
+        let ClientBuilder { inner } = self;
+        let inner = { inner.request_signing() };
+        ClientBuilder { inner }
     }
 }
-impl<Cred, E, S> ClientBuilder<Cred, E, S, NoDelegation> {
-    pub fn allow_delegation(self) -> ClientBuilder<Cred, E, S, Delegatable> {
-        self.convert_policy()
+impl<S: SigningState> ClientBuilder<S, NoEncryption> {
+    pub fn request_encryption(self) -> ClientBuilder<S, MaybeEncryption> {
+        let ClientBuilder { inner } = self;
+        let inner = { inner.request_encryption() };
+        ClientBuilder { inner }
     }
 }
-impl<Cred, E1, S1, D1> ClientBuilder<Cred, E1, S1, D1> {
-    fn convert_policy<E2, S2, D2>(self) -> ClientBuilder<Cred, E2, S2, D2> {
-        ClientBuilder {
-            cred: self.cred,
-            target_principal: self.target_principal,
-            _enc: PhantomData,
-        }
-    }
-}
-impl<Cred: AsRef<Credentials>, E: EncryptionPolicy, S: SigningPolicy, D: DelegationPolicy>
-    ClientBuilder<Cred, E, S, D>
+
+#[cfg(windows)]
+impl<S: SigningState, E: EncryptionState> ClientBuilder<S, E>
+where
+    E::Win: kenobi_windows::client::EncryptionPolicy,
+    S::Win: kenobi_windows::client::SigningPolicy,
 {
-    pub fn initialize(
-        self,
-        server_init_token: Option<&[u8]>,
-    ) -> Result<StepOut<Cred, E, S, D>, InitializeContextError> {
-        let requirements = ISC_REQ_MUTUAL_AUTH | E::ADDED_REQ_FLAGS | S::ADDED_REQ_FLAGS | D::ADDED_REQ_FLAGS;
-        match super::step(
-            self.cred,
-            self.target_principal,
-            None,
-            requirements,
-            0,
-            None,
-            server_init_token,
-        )? {
-            StepOut::Pending(p) => Ok(StepOut::Pending(p)),
-            StepOut::Completed(c) => Ok(StepOut::Completed(c)),
-        }
+    pub fn initialize(self, server_init_token: Option<&[u8]>) -> StepOut<S, E> {
+        StepOut::from_windows(self.inner.initialize(server_init_token).unwrap())
+    }
+}
+
+#[cfg(unix)]
+impl<S: SigningState, E: EncryptionState> ClientBuilder<S, E>
+where
+    E::Unix: kenobi_unix::client::EncryptionPolicy,
+    S::Unix: kenobi_unix::client::SignPolicy,
+{
+    pub fn initialize(self, server_init_token: Option<&[u8]>) -> StepOut<S, E> {
+        StepOut::from_unix(self.inner.initialize(server_init_token).unwrap())
     }
 }
