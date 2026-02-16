@@ -19,9 +19,9 @@ mod typestate;
 
 pub struct ClientContext<S: SigningState, E: EncryptionState> {
     #[cfg(windows)]
-    _inner: WinContext<WinCred, E::Win, S::Win>,
+    inner: WinContext<WinCred, E::Win, S::Win>,
     #[cfg(unix)]
-    _inner: UnixClientContext<S::Unix, E::Unix, NoDelegation>,
+    inner: UnixClientContext<S::Unix, E::Unix, NoDelegation>,
 }
 impl ClientContext<typestate::NoSigning, typestate::NoEncryption> {
     pub fn new_from_cred(
@@ -32,6 +32,27 @@ impl ClientContext<typestate::NoSigning, typestate::NoEncryption> {
         return StepOut::from_windows(WinContext::new_from_cred(cred.into_platform(), target_principal, None).unwrap());
         #[cfg(unix)]
         StepOut::from_unix(UnixClientContext::new_from_cred(cred.into_platform(), target_principal).unwrap())
+    }
+}
+#[cfg(windows)]
+impl<S: SigningState, E: EncryptionState> ClientContext<S, E>
+where
+    S::Win: kenobi_windows::client::SigningPolicy,
+    E::Win: kenobi_windows::client::EncryptionPolicy,
+{
+    pub fn last_token(&self) -> Option<&[u8]> {
+        self.inner.last_token()
+    }
+}
+
+#[cfg(unix)]
+impl<S: SigningState, E: EncryptionState> ClientContext<S, E>
+where
+    S::Unix: kenobi_unix::client::SignPolicy,
+    E::Unix: kenobi_unix::client::EncryptionPolicy,
+{
+    pub fn last_token(&self) -> Option<&[u8]> {
+        self.inner.last_token()
     }
 }
 
@@ -50,7 +71,7 @@ where
 {
     pub fn step(self, token: &[u8]) -> StepOut<S, E> {
         match self.inner.step(token).unwrap() {
-            WinStepOut::Completed(_inner) => StepOut::Finished(ClientContext { _inner }),
+            WinStepOut::Completed(inner) => StepOut::Finished(ClientContext { inner }),
             WinStepOut::Pending(inner) => StepOut::Pending(PendingClientContext { inner }),
         }
     }
@@ -67,7 +88,7 @@ where
 {
     pub fn step(self, token: &[u8]) -> StepOut<S, E> {
         match self.inner.step(token).unwrap() {
-            UnixStepOut::Finished(_inner) => StepOut::Finished(ClientContext { _inner }),
+            UnixStepOut::Finished(inner) => StepOut::Finished(ClientContext { inner }),
             UnixStepOut::Pending(inner) => StepOut::Pending(PendingClientContext { inner }),
         }
     }
@@ -84,14 +105,14 @@ impl<S: SigningState, E: EncryptionState> StepOut<S, E> {
     #[cfg(windows)]
     fn from_windows(win: WinStepOut<WinCred, E::Win, S::Win>) -> Self {
         match win {
-            WinStepOut::Completed(_inner) => Self::Finished(ClientContext { _inner }),
+            WinStepOut::Completed(inner) => Self::Finished(ClientContext { inner }),
             WinStepOut::Pending(inner) => Self::Pending(PendingClientContext { inner }),
         }
     }
     #[cfg(unix)]
     fn from_unix(win: UnixStepOut<S::Unix, E::Unix, NoDelegation>) -> Self {
         match win {
-            UnixStepOut::Finished(_inner) => Self::Finished(ClientContext { _inner }),
+            UnixStepOut::Finished(inner) => Self::Finished(ClientContext { inner }),
             UnixStepOut::Pending(inner) => Self::Pending(PendingClientContext { inner }),
         }
     }
