@@ -1,11 +1,12 @@
 #[cfg(windows)]
 use kenobi_windows::{client::NoDelegation, credentials::Credentials as WinCred};
 
-#[cfg(windows)]
-use crate::client::{UnfinishedEncryptionState, UnfinishedSigningState};
 use crate::{
     Credentials,
-    client::{EncryptionState, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, SigningState, StepOut},
+    client::{
+        EncryptionState, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, SigningState, StepOut,
+        UnfinishedEncryptionState, UnfinishedSigningState,
+    },
 };
 
 #[cfg(unix)]
