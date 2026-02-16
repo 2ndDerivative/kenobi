@@ -1,6 +1,8 @@
 #[cfg(windows)]
 use kenobi_windows::{client::NoDelegation, credentials::Credentials as WinCred};
 
+#[cfg(windows)]
+use crate::client::{UnfinishedEncryptionState, UnfinishedSigningState};
 use crate::{
     Credentials,
     client::{EncryptionState, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, SigningState, StepOut},
@@ -54,22 +56,14 @@ impl<S: SigningState> ClientBuilder<S, NoEncryption> {
 }
 
 #[cfg(windows)]
-impl<S: SigningState, E: EncryptionState> ClientBuilder<S, E>
-where
-    E::Win: kenobi_windows::client::EncryptionPolicy,
-    S::Win: kenobi_windows::client::SigningPolicy,
-{
+impl<S: UnfinishedSigningState, E: UnfinishedEncryptionState> ClientBuilder<S, E> {
     pub fn initialize(self, server_init_token: Option<&[u8]>) -> StepOut<S, E> {
         StepOut::from_windows(self.inner.initialize(server_init_token).unwrap())
     }
 }
 
 #[cfg(unix)]
-impl<S: SigningState, E: EncryptionState> ClientBuilder<S, E>
-where
-    E::Unix: kenobi_unix::client::EncryptionPolicy,
-    S::Unix: kenobi_unix::client::SignPolicy,
-{
+impl<S: UnfinishedSigningState, E: UnfinishedEncryptionState> ClientBuilder<S, E> {
     pub fn initialize(self, server_init_token: Option<&[u8]>) -> StepOut<S, E> {
         StepOut::from_unix(self.inner.initialize(server_init_token).unwrap())
     }

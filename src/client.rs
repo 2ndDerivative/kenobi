@@ -12,6 +12,7 @@ use kenobi_windows::{
 pub use builder::ClientBuilder;
 pub use typestate::{
     Encryption, EncryptionState, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, Signing, SigningState,
+    UnfinishedEncryptionState, UnfinishedSigningState,
 };
 
 use crate::Credentials;
@@ -37,31 +38,20 @@ impl ClientContext<typestate::NoSigning, typestate::NoEncryption> {
     }
 }
 #[cfg(windows)]
-impl<S: SigningState, E: EncryptionState> ClientContext<S, E>
-where
-    S::Win: kenobi_windows::client::SigningPolicy,
-    E::Win: kenobi_windows::client::EncryptionPolicy,
-{
+impl<S: SigningState, E: EncryptionState> ClientContext<S, E> {
     pub fn last_token(&self) -> Option<&[u8]> {
         self.inner.last_token()
     }
 }
 
 #[cfg(unix)]
-impl<S: SigningState, E: EncryptionState> ClientContext<S, E>
-where
-    S::Unix: kenobi_unix::client::SignPolicy,
-    E::Unix: kenobi_unix::client::EncryptionPolicy,
-{
+impl<S: SigningState, E: EncryptionState> ClientContext<S, E> {
     pub fn last_token(&self) -> Option<&[u8]> {
         self.inner.last_token()
     }
 }
 #[cfg(windows)]
-impl<E: EncryptionState> ClientContext<MaybeSigning, E>
-where
-    E::Win: kenobi_windows::client::EncryptionPolicy,
-{
+impl<E: EncryptionState> ClientContext<MaybeSigning, E> {
     pub fn check_signing(self) -> Result<ClientContext<Signing, E>, ClientContext<NoSigning, E>> {
         self.inner
             .check_signing()
@@ -70,10 +60,7 @@ where
     }
 }
 #[cfg(unix)]
-impl<E: EncryptionState> ClientContext<MaybeSigning, E>
-where
-    E::Unix: kenobi_unix::client::EncryptionPolicy,
-{
+impl<E: EncryptionState> ClientContext<MaybeSigning, E> {
     pub fn check_signing(self) -> Result<ClientContext<Signing, E>, ClientContext<NoSigning, E>> {
         self.inner
             .check_signing()
@@ -82,10 +69,7 @@ where
     }
 }
 #[cfg(windows)]
-impl<S: SigningState> ClientContext<S, MaybeEncryption>
-where
-    S::Win: kenobi_windows::client::SigningPolicy,
-{
+impl<S: SigningState> ClientContext<S, MaybeEncryption> {
     pub fn check_encryption(self) -> Result<ClientContext<S, Encryption>, ClientContext<S, NoEncryption>> {
         self.inner
             .check_encryption()
@@ -94,10 +78,7 @@ where
     }
 }
 #[cfg(unix)]
-impl<S: SigningState> ClientContext<S, MaybeEncryption>
-where
-    S::Unix: kenobi_unix::client::SignPolicy,
-{
+impl<S: SigningState> ClientContext<S, MaybeEncryption> {
     pub fn check_encryption(self) -> Result<ClientContext<S, Encryption>, ClientContext<S, NoEncryption>> {
         self.inner
             .check_encryption()
@@ -106,7 +87,7 @@ where
     }
 }
 
-pub struct PendingClientContext<S: SigningState, E: EncryptionState> {
+pub struct PendingClientContext<S: UnfinishedSigningState, E: UnfinishedEncryptionState> {
     #[cfg(windows)]
     inner: WinPendingClientContext<WinCred, E::Win, S::Win>,
     #[cfg(unix)]
@@ -114,23 +95,19 @@ pub struct PendingClientContext<S: SigningState, E: EncryptionState> {
 }
 
 #[cfg(windows)]
-impl<S: SigningState, E: EncryptionState> PendingClientContext<S, E> {
+impl<S: UnfinishedSigningState, E: UnfinishedEncryptionState> PendingClientContext<S, E> {
     pub fn next_token(&self) -> &[u8] {
         self.inner.next_token()
     }
 }
 #[cfg(unix)]
-impl<S: SigningState, E: EncryptionState> PendingClientContext<S, E> {
+impl<S: UnfinishedSigningState, E: UnfinishedEncryptionState> PendingClientContext<S, E> {
     pub fn next_token(&self) -> &[u8] {
         self.inner.next_token()
     }
 }
 #[cfg(windows)]
-impl<S: SigningState, E: EncryptionState> PendingClientContext<S, E>
-where
-    S::Win: kenobi_windows::client::SigningPolicy,
-    E::Win: kenobi_windows::client::EncryptionPolicy,
-{
+impl<S: UnfinishedSigningState, E: UnfinishedEncryptionState> PendingClientContext<S, E> {
     pub fn step(self, token: &[u8]) -> StepOut<S, E> {
         match self.inner.step(token).unwrap() {
             WinStepOut::Completed(inner) => StepOut::Finished(ClientContext { inner }),
@@ -140,11 +117,7 @@ where
 }
 
 #[cfg(unix)]
-impl<S: SigningState, E: EncryptionState> PendingClientContext<S, E>
-where
-    S::Unix: kenobi_unix::client::SignPolicy,
-    E::Unix: kenobi_unix::client::EncryptionPolicy,
-{
+impl<S: UnfinishedSigningState, E: UnfinishedEncryptionState> PendingClientContext<S, E> {
     pub fn step(self, token: &[u8]) -> StepOut<S, E> {
         match self.inner.step(token).unwrap() {
             UnixStepOut::Finished(inner) => StepOut::Finished(ClientContext { inner }),
@@ -153,11 +126,11 @@ where
     }
 }
 
-pub enum StepOut<S: SigningState, E: EncryptionState> {
+pub enum StepOut<S: UnfinishedSigningState, E: UnfinishedEncryptionState> {
     Pending(PendingClientContext<S, E>),
     Finished(ClientContext<S, E>),
 }
-impl<S: SigningState, E: EncryptionState> StepOut<S, E> {
+impl<S: UnfinishedSigningState, E: UnfinishedEncryptionState> StepOut<S, E> {
     #[cfg(windows)]
     fn from_windows(win: WinStepOut<WinCred, E::Win, S::Win>) -> Self {
         match win {
