@@ -20,9 +20,9 @@ impl Credentials {
     fn into_platform(self) -> UnixCred {
         self.inner
     }
-    pub fn acquire_default(usage: CredentialsUsage, principal: &str) -> Self {
+    pub fn acquire_default(usage: CredentialsUsage, principal: Option<&str>) -> Self {
         #[cfg(windows)]
-        let inner = WinCred::acquire_default(usage.to_windows(), Some(principal));
+        let inner = WinCred::acquire_default(usage.to_windows(), principal);
         #[cfg(unix)]
         let inner = UnixCred::acquire_default(usage.to_unix(), principal).unwrap();
         Self { inner }
