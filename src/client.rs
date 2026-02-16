@@ -20,6 +20,10 @@ use crate::Credentials;
 mod builder;
 mod typestate;
 
+/// A client context that has finished authentication
+///
+/// This context represents the client side of the authentication, and may have a last token to be delivered to the server.
+/// The final token may be used using `ClientContext::last_token`
 pub struct ClientContext<S: SigningState, E: EncryptionState> {
     #[cfg(windows)]
     inner: WinContext<WinCred, E::Win, S::Win>,

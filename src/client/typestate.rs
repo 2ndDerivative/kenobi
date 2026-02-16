@@ -67,7 +67,10 @@ pub(crate) mod sealed {
     }
 }
 
+/// Trait for signing markers which can occur after negotiation has finished
 pub trait SigningState: sealed::SigningSealed {}
+/// Trait for signing markers which can occur before negotiation has finished
+/// (signing cannot be guaranteed to be possible before the context has finished)
 pub trait UnfinishedSigningState: sealed::UnfinishedSigningSealed {}
 
 pub enum NoSigning {}
@@ -81,7 +84,10 @@ impl UnfinishedSigningState for MaybeSigning {}
 pub enum Signing {}
 impl SigningState for Signing {}
 
+/// Trait for encryption markers which can occur after negotiation has finished
 pub trait EncryptionState: sealed::EncryptionSealed {}
+/// Trait for encryption markers which can occur before negotiation has finished
+/// (encryption cannot be guaranteed to be allowed before the context has finished)
 pub trait UnfinishedEncryptionState: sealed::UnfinishedEncryptionSealed {}
 
 pub enum NoEncryption {}

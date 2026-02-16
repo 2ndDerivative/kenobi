@@ -12,6 +12,8 @@ use crate::{
 #[cfg(unix)]
 use kenobi_unix::client::NoDelegation;
 
+/// A Builder to setup a signing and encryption policy for a client context.
+/// finish setting up with `ClientBuilder::initialize`
 pub struct ClientBuilder<S: SigningState, E: EncryptionState> {
     #[cfg(windows)]
     inner: kenobi_windows::client::ClientBuilder<WinCred, E::Win, S::Win, NoDelegation>,
@@ -21,6 +23,7 @@ pub struct ClientBuilder<S: SigningState, E: EncryptionState> {
 
 #[cfg(windows)]
 impl ClientBuilder<NoSigning, NoEncryption> {
+    #[must_use]
     pub fn new_from_credentials(
         cred: Credentials,
         target_principal: Option<&str>,
@@ -32,6 +35,7 @@ impl ClientBuilder<NoSigning, NoEncryption> {
 
 #[cfg(unix)]
 impl ClientBuilder<NoSigning, NoEncryption> {
+    #[must_use]
     pub fn new_from_credentials(
         cred: Credentials,
         target_principal: Option<&str>,
@@ -42,6 +46,7 @@ impl ClientBuilder<NoSigning, NoEncryption> {
 }
 
 impl<E: EncryptionState> ClientBuilder<NoSigning, E> {
+    #[must_use]
     pub fn request_signing(self) -> ClientBuilder<MaybeSigning, E> {
         let ClientBuilder { inner } = self;
         let inner = { inner.request_signing() };
@@ -49,6 +54,7 @@ impl<E: EncryptionState> ClientBuilder<NoSigning, E> {
     }
 }
 impl<S: SigningState> ClientBuilder<S, NoEncryption> {
+    #[must_use]
     pub fn request_encryption(self) -> ClientBuilder<S, MaybeEncryption> {
         let ClientBuilder { inner } = self;
         let inner = { inner.request_encryption() };
@@ -58,6 +64,7 @@ impl<S: SigningState> ClientBuilder<S, NoEncryption> {
 
 #[cfg(windows)]
 impl<S: UnfinishedSigningState, E: UnfinishedEncryptionState> ClientBuilder<S, E> {
+    #[must_use]
     pub fn initialize(self, server_init_token: Option<&[u8]>) -> StepOut<S, E> {
         StepOut::from_windows(self.inner.initialize(server_init_token).unwrap())
     }
@@ -65,6 +72,7 @@ impl<S: UnfinishedSigningState, E: UnfinishedEncryptionState> ClientBuilder<S, E
 
 #[cfg(unix)]
 impl<S: UnfinishedSigningState, E: UnfinishedEncryptionState> ClientBuilder<S, E> {
+    #[must_use]
     pub fn initialize(self, server_init_token: Option<&[u8]>) -> StepOut<S, E> {
         StepOut::from_unix(self.inner.initialize(server_init_token).unwrap())
     }

@@ -5,6 +5,7 @@ use kenobi_windows::credentials::Credentials as WinCred;
 
 pub mod client;
 
+/// A GSSAPI credentials handle
 pub struct Credentials {
     #[cfg(windows)]
     inner: WinCred,
@@ -20,6 +21,10 @@ impl Credentials {
     fn into_platform(self) -> UnixCred {
         self.inner
     }
+    #[must_use]
+    /// Grab the default credentials handle for a given principal (or the default user principal)
+    ///
+    /// On windows, this will use the current security context, and on Unix, this will use the default Keytab/ticket store
     pub fn acquire_default(usage: CredentialsUsage, principal: Option<&str>) -> Self {
         #[cfg(windows)]
         let inner = WinCred::acquire_default(usage.to_windows(), principal);
@@ -30,6 +35,8 @@ impl Credentials {
 }
 
 #[derive(Clone, Copy, Debug)]
+/// The usage marker for a credentials handle
+/// Currently, there is no way to use an Inbound token for a server context, but I am keeping this in case there will be a server feature for this crate
 pub enum CredentialsUsage {
     Inbound,
     Outbound,
