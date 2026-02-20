@@ -46,12 +46,18 @@ impl<S: SigningState, E: EncryptionState> ClientContext<S, E> {
     pub fn last_token(&self) -> Option<&[u8]> {
         self.inner.last_token()
     }
+    pub fn session_key(&self) -> impl std::ops::Deref<Target = [u8]> {
+        self.inner.get_session_key()
+    }
 }
 
 #[cfg(unix)]
 impl<S: SigningState, E: EncryptionState> ClientContext<S, E> {
     pub fn last_token(&self) -> Option<&[u8]> {
         self.inner.last_token()
+    }
+    pub fn session_key(&self) -> impl std::ops::Deref<Target = [u8]> {
+        self.inner.session_key().unwrap()
     }
 }
 #[cfg(windows)]
