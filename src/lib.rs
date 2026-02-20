@@ -4,6 +4,7 @@ use kenobi_unix::credentials::Credentials as UnixCred;
 use kenobi_windows::credentials::Credentials as WinCred;
 
 pub mod client;
+mod sign_encrypt;
 
 #[derive(Debug)]
 pub struct CredentialsError {

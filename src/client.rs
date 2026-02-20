@@ -15,7 +15,7 @@ pub use typestate::{
     UnfinishedEncryptionState, UnfinishedSigningState,
 };
 
-use crate::Credentials;
+use crate::{Credentials, sign_encrypt::Signature};
 
 mod builder;
 mod typestate;
@@ -94,6 +94,20 @@ impl<S: SigningState> ClientContext<S, MaybeEncryption> {
             .check_encryption()
             .map(|inner| ClientContext { inner })
             .map_err(|inner| ClientContext { inner })
+    }
+}
+
+impl<E: EncryptionState> ClientContext<Signing, E> {
+    #[cfg(windows)]
+    pub fn sign_message(&self, message: &[u8]) -> Signature {
+        Signature::from_inner(self.inner.sign_message(message))
+    }
+    #[cfg(unix)]
+    pub fn sign_message(&self, message: &[u8]) -> Signature {
+        Signature::from_inner(self.inner.sign_message(message).unwrap())
+    }
+    pub fn verify_message(&self, message: &[u8]) {
+        self.inner.verify_message(message).unwrap()
     }
 }
 
