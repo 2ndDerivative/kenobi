@@ -9,6 +9,10 @@ use kenobi_windows::cred::{Credentials as WinCred, CredentialsUsage};
 pub mod client;
 mod sign_encrypt;
 
+pub mod cred {
+    pub use kenobi_core::cred::usage::{Both, Inbound, InboundUsable, Outbound, OutboundUsable};
+}
+
 #[derive(Debug)]
 pub struct CredentialsError {
     #[cfg(windows)]
