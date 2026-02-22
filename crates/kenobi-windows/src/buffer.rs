@@ -4,7 +4,7 @@ use windows::Win32::Security::Authentication::Identity::{FreeContextBuffer, Quer
 
 use crate::NEGOTIATE;
 
-const FALLBACK_BUFFER_SIZE: u32 = 5000;
+const FALLBACK_BUFFER_SIZE: u32 = 48256;
 static MAX_TOKEN_BUFFER_SIZE: LazyLock<windows_result::Result<u32>> = LazyLock::new(get_max_buffer_size);
 fn get_max_buffer_size() -> windows_result::Result<u32> {
     let buf = unsafe { QuerySecurityPackageInfoW(NEGOTIATE)? };
