@@ -1,7 +1,8 @@
 [package]
 description = "Common markers and types for kenobi"
 name = "kenobi-core"
-version.workspace = true"
+version = "0.1.0"
+license.workspace = true
 edition.workspace = true
 
 [dependencies]

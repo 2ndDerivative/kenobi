@@ -1,7 +1,10 @@
+use std::marker::PhantomData;
+
+use kenobi_core::cred::usage::OutboundUsable;
 #[cfg(unix)]
 use kenobi_unix::credentials::Credentials as UnixCred;
 #[cfg(windows)]
-use kenobi_windows::credentials::Credentials as WinCred;
+use kenobi_windows::cred::Credentials as WinCred;
 
 pub mod client;
 mod sign_encrypt;
@@ -9,7 +12,7 @@ mod sign_encrypt;
 #[derive(Debug)]
 pub struct CredentialsError {
     #[cfg(windows)]
-    win: kenobi_windows::credentials::Error,
+    win: kenobi_windows::cred::Error,
     #[cfg(unix)]
     unix: kenobi_unix::Error,
 }
@@ -24,15 +27,16 @@ impl std::fmt::Display for CredentialsError {
 }
 
 /// A GSSAPI credentials handle
-pub struct Credentials {
+pub struct Credentials<Usage> {
     #[cfg(windows)]
-    inner: WinCred,
+    inner: WinCred<Usage>,
     #[cfg(unix)]
     inner: UnixCred,
+    _marker: PhantomData<Usage>,
 }
-impl Credentials {
+impl<Usage: CredentialsUsage + OutboundUsable> Credentials<Usage> {
     #[cfg(windows)]
-    fn into_platform(self) -> WinCred {
+    fn into_platform(self) -> WinCred<Usage> {
         self.inner
     }
     #[cfg(unix)]
@@ -42,40 +46,17 @@ impl Credentials {
     /// Grab the default credentials handle for a given principal (or the default user principal)
     ///
     /// On windows, this will use the current security context, and on Unix, this will use the default Keytab/ticket store
-    pub fn acquire_default(usage: CredentialsUsage, principal: Option<&str>) -> Result<Self, CredentialsError> {
+    pub fn acquire_default(principal: Option<&str>) -> Result<Self, CredentialsError> {
         #[cfg(windows)]
-        let inner = WinCred::acquire_default(usage.to_windows(), principal).map_err(|win| CredentialsError { win })?;
+        let inner = WinCred::acquire_default(principal).map_err(|win| CredentialsError { win })?;
         #[cfg(unix)]
         let inner = UnixCred::acquire_default(usage.to_unix(), principal).map_err(|unix| CredentialsError { unix })?;
-        Ok(Self { inner })
+        Ok(Self {
+            inner,
+            _marker: PhantomData,
+        })
     }
 }
 
-#[derive(Clone, Copy, Debug)]
-/// The usage marker for a credentials handle
-/// Currently, there is no way to use an Inbound token for a server context, but I am keeping this in case there will be a server feature for this crate
-pub enum CredentialsUsage {
-    Inbound,
-    Outbound,
-    Both,
-}
-impl CredentialsUsage {
-    #[cfg(windows)]
-    fn to_windows(self) -> kenobi_windows::credentials::CredentialsUsage {
-        use kenobi_windows::credentials::CredentialsUsage::*;
-        match self {
-            Self::Inbound => Inbound,
-            Self::Outbound => Outbound,
-            Self::Both => Both,
-        }
-    }
-    #[cfg(unix)]
-    fn to_unix(self) -> kenobi_unix::CredentialsUsage {
-        use kenobi_unix::CredentialsUsage::*;
-        match self {
-            Self::Inbound => Inbound,
-            Self::Outbound => Outbound,
-            Self::Both => Both,
-        }
-    }
-}
+#[cfg(windows)]
+pub trait CredentialsUsage: kenobi_windows::cred::CredentialsUsage {}

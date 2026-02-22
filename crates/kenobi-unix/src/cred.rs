@@ -1,0 +1,109 @@
+pub use kenobi_markers::cred::usage::{Both, Inbound, Outbound};
+use std::{
+    marker::PhantomData,
+    ptr::NonNull,
+    time::{Duration, Instant},
+};
+
+use libgssapi_sys::{
+    _GSS_C_INDEFINITE, _GSS_S_FAILURE, GSS_C_ACCEPT, GSS_C_BOTH, GSS_C_INITIATE, GSS_C_NT_USER_NAME, gss_acquire_cred,
+    gss_cred_id_struct, gss_release_cred,
+};
+
+use crate::{
+    Error,
+    error::{GssErrorCode, MechanismErrorCode},
+    name::NameHandle,
+};
+
+pub struct Credentials<Usage = Outbound> {
+    pub(crate) cred_handle: NonNull<gss_cred_id_struct>,
+    valid_until: Instant,
+    _usage: PhantomData<Usage>,
+}
+impl<Usage: CredentialsUsage> Credentials<Usage> {
+    fn new(principal: Option<&str>, time_required: Option<Duration>) -> Result<Self, super::Error> {
+        let mut name = principal
+            .map(|p| NameHandle::import(p, unsafe { GSS_C_NT_USER_NAME }))
+            .transpose()?;
+
+        let mut minor = 0;
+        let mut validity = 0;
+        let mut cred_handle = std::ptr::null_mut();
+        if let Some(error) = GssErrorCode::new(unsafe {
+            gss_acquire_cred(
+                &mut minor,
+                name.as_mut()
+                    .map(|re| std::ptr::from_mut(re.as_mut()))
+                    .unwrap_or_default(),
+                time_required
+                    .map(|d| d.as_secs().try_into().unwrap_or(u32::MAX))
+                    .unwrap_or(_GSS_C_INDEFINITE),
+                std::ptr::null_mut(),
+                Usage::to_c(),
+                &mut cred_handle,
+                std::ptr::null_mut(),
+                &mut validity,
+            )
+        }) {
+            return Err(error.into());
+        };
+        if let Some(error) = MechanismErrorCode::new(minor) {
+            return Err(error.into());
+        }
+
+        let valid_until = Instant::now() + Duration::from_secs(validity.into());
+        let Some(cred_handle) = NonNull::new(cred_handle) else {
+            return Err(Error::gss(_GSS_S_FAILURE).unwrap());
+        };
+        Ok(Self {
+            cred_handle,
+            valid_until,
+            _usage: PhantomData,
+        })
+    }
+    pub fn valid_until(&self) -> Instant {
+        self.valid_until
+    }
+}
+impl Credentials<Inbound> {
+    pub fn inbound(principal: Option<&str>, time_required: Option<Duration>) -> Result<Self, super::Error> {
+        Self::new(principal, time_required)
+    }
+}
+impl Credentials<Outbound> {
+    pub fn outbound(principal: Option<&str>, time_required: Option<Duration>) -> Result<Self, super::Error> {
+        Self::new(principal, time_required)
+    }
+}
+impl Credentials<Both> {
+    pub fn both(principal: Option<&str>, time_required: Option<Duration>) -> Result<Self, super::Error> {
+        Self::new(principal, time_required)
+    }
+}
+impl<T> Drop for Credentials<T> {
+    fn drop(&mut self) {
+        let mut _s = 0;
+        unsafe {
+            gss_release_cred(&mut _s, &mut NonNull::as_ptr(self.cred_handle));
+        }
+    }
+}
+pub trait CredentialsUsage {
+    fn to_c() -> i32;
+}
+impl CredentialsUsage for Inbound {
+    fn to_c() -> i32 {
+        GSS_C_ACCEPT as i32
+    }
+}
+impl CredentialsUsage for Outbound {
+    fn to_c() -> i32 {
+        GSS_C_INITIATE as i32
+    }
+}
+impl CredentialsUsage for Both {
+    fn to_c() -> i32 {
+        GSS_C_BOTH as i32
+    }
+}

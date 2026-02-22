@@ -3,12 +3,13 @@ name = "kenobi"
 version.workspace = true
 authors.workspace = true
 description = "A cross-plattform Negotiate client implementation."
-keywords = ["windows", "sspi", "kerberos", "ntlm"]
+keywords.workspace = true
 license.workspace = true
 repository = "https://github.com/2ndDerivative/kenobi"
 edition.workspace = true
 
 [dependencies]
+kenobi-core = { version = "0.1.0", path = "../kenobi-core" }
 
 [target.'cfg(windows)'.dependencies]
 kenobi-windows = { version = "0.2.0", path = "../kenobi-windows" }

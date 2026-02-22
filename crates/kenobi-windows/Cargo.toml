@@ -1,0 +1,16 @@
+[package]
+name = "kenobi-windows"
+description = "A Windows Negotiate implementation."
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+keywords = ["windows", "sspi", "kerberos", "ntlm"]
+license.workspace = true
+
+[dependencies]
+kenobi-core = { version = "0.1.0", path = "../kenobi-core" }
+windows-result = "0.4.1"
+
+[dependencies.windows]
+version = "0.62.2"
+features = ["Win32_Security_Authentication_Identity", "Win32_Security_Credentials"]

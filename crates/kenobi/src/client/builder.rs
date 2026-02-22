@@ -1,5 +1,7 @@
 #[cfg(windows)]
-use kenobi_windows::{client::NoDelegation, credentials::Credentials as WinCred};
+use kenobi_core::cred::usage::OutboundUsable;
+#[cfg(windows)]
+use kenobi_windows::client::NoDelegation;
 
 use crate::{
     Credentials,
@@ -14,20 +16,20 @@ use kenobi_unix::client::NoDelegation;
 
 /// A Builder to setup a signing and encryption policy for a client context.
 /// finish setting up with `ClientBuilder::initialize`
-pub struct ClientBuilder<S: SigningState, E: EncryptionState> {
+pub struct ClientBuilder<Usage, S: SigningState, E: EncryptionState> {
     #[cfg(windows)]
-    inner: kenobi_windows::client::ClientBuilder<WinCred, E::Win, S::Win, NoDelegation>,
+    inner: kenobi_windows::client::ClientBuilder<Usage, E::Win, S::Win, NoDelegation>,
     #[cfg(unix)]
     inner: kenobi_unix::client::ClientBuilder<S::Unix, E::Unix, NoDelegation>,
 }
 
 #[cfg(windows)]
-impl ClientBuilder<NoSigning, NoEncryption> {
+impl<Usage> ClientBuilder<Usage, NoSigning, NoEncryption> {
     #[must_use]
     pub fn new_from_credentials(
-        cred: Credentials,
+        cred: Credentials<Usage>,
         target_principal: Option<&str>,
-    ) -> ClientBuilder<NoSigning, NoEncryption> {
+    ) -> ClientBuilder<Usage, NoSigning, NoEncryption> {
         let inner = kenobi_windows::client::ClientBuilder::new_from_credentials(cred.inner, target_principal);
         ClientBuilder { inner }
     }
@@ -45,17 +47,17 @@ impl ClientBuilder<NoSigning, NoEncryption> {
     }
 }
 
-impl<E: EncryptionState> ClientBuilder<NoSigning, E> {
+impl<Usage, E: EncryptionState> ClientBuilder<Usage, NoSigning, E> {
     #[must_use]
-    pub fn request_signing(self) -> ClientBuilder<MaybeSigning, E> {
+    pub fn request_signing(self) -> ClientBuilder<Usage, MaybeSigning, E> {
         let ClientBuilder { inner } = self;
         let inner = { inner.request_signing() };
         ClientBuilder { inner }
     }
 }
-impl<S: SigningState> ClientBuilder<S, NoEncryption> {
+impl<Usage, S: SigningState> ClientBuilder<Usage, S, NoEncryption> {
     #[must_use]
-    pub fn request_encryption(self) -> ClientBuilder<S, MaybeEncryption> {
+    pub fn request_encryption(self) -> ClientBuilder<Usage, S, MaybeEncryption> {
         let ClientBuilder { inner } = self;
         let inner = { inner.request_encryption() };
         ClientBuilder { inner }
@@ -63,9 +65,9 @@ impl<S: SigningState> ClientBuilder<S, NoEncryption> {
 }
 
 #[cfg(windows)]
-impl<S: UnfinishedSigningState, E: UnfinishedEncryptionState> ClientBuilder<S, E> {
+impl<Usage: OutboundUsable, S: UnfinishedSigningState, E: UnfinishedEncryptionState> ClientBuilder<Usage, S, E> {
     #[must_use]
-    pub fn initialize(self) -> StepOut<S, E> {
+    pub fn initialize(self) -> StepOut<Usage, S, E> {
         StepOut::from_windows(self.inner.initialize().unwrap())
     }
 }
