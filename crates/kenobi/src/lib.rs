@@ -1,10 +1,10 @@
 use std::marker::PhantomData;
 
-use kenobi_core::cred::usage::OutboundUsable;
+use kenobi_core::cred::usage::{Outbound, OutboundUsable};
 #[cfg(unix)]
 use kenobi_unix::cred::{Credentials as UnixCred, CredentialsUsage};
 #[cfg(windows)]
-use kenobi_windows::cred::Credentials as WinCred;
+use kenobi_windows::cred::{Credentials as WinCred, CredentialsUsage};
 
 pub mod client;
 mod sign_encrypt;
@@ -46,7 +46,7 @@ impl<Usage: CredentialsUsage + OutboundUsable> Credentials<Usage> {
     /// Grab the default credentials handle for a given principal (or the default user principal)
     ///
     /// On windows, this will use the current security context, and on Unix, this will use the default Keytab/ticket store
-    pub fn acquire_default(principal: Option<&str>) -> Result<Self, CredentialsError> {
+    pub fn new(principal: Option<&str>) -> Result<Self, CredentialsError> {
         #[cfg(windows)]
         let inner = WinCred::acquire_default(principal).map_err(|win| CredentialsError { win })?;
         #[cfg(unix)]
@@ -57,6 +57,8 @@ impl<Usage: CredentialsUsage + OutboundUsable> Credentials<Usage> {
         })
     }
 }
-
-#[cfg(windows)]
-pub trait CredentialsUsage: kenobi_windows::cred::CredentialsUsage {}
+impl Credentials<Outbound> {
+    pub fn outbound(principal: Option<&str>) -> Result<Self, CredentialsError> {
+        Self::new(principal)
+    }
+}
