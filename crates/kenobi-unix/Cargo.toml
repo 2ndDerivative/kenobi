@@ -11,4 +11,4 @@ kenobi-core = { version = "0.1.0", path = "../kenobi-core" }
 libgssapi-sys = "0.3.3"
 
 [features]
-native-tls = ["dep:native-tls", "kenobi-core/native-tls"]
+native-tls = ["kenobi-core/native-tls"]
