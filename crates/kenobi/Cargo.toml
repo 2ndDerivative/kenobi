@@ -1,12 +1,12 @@
 [package]
 name = "kenobi"
-version = "0.2.0"
-authors = ["Niclas Klugmann <niclas@klugmann.de>"]
+version.workspace = true
+authors.workspace = true
 description = "A cross-plattform Negotiate client implementation."
 keywords = ["windows", "sspi", "kerberos", "ntlm"]
-license = "MIT"
+license.workspace = true
 repository = "https://github.com/2ndDerivative/kenobi"
-edition = "2024"
+edition.workspace = true
 
 [dependencies]
 

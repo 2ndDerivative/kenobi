@@ -3,7 +3,9 @@ resolver = "3"
 default-members = ["kenobi"]
 members = ["./crates/*"]
 version = "0.2.0"
+edition = "2024"
 
 [workspace.package]
 keywords = ["authentication", "kerberos", "ntlm", "gssapi", "sspi"]
-
+authors = ["Niclas Klugmann <niclas@klugmann.de>"]
+license = "MIT"
