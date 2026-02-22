@@ -1,4 +1,4 @@
-use std::{ffi::c_void, ops::Deref, ptr::NonNull, sync::LazyLock};
+use std::{ffi::c_void, ops::Deref, sync::LazyLock};
 
 use windows::Win32::Security::Authentication::Identity::{FreeContextBuffer, QuerySecurityPackageInfoW, SecBuffer};
 
@@ -14,7 +14,7 @@ fn get_max_buffer_size() -> windows_result::Result<u32> {
 }
 
 pub struct NonResizableVec {
-    pointer: NonNull<[u8]>,
+    arr: &'static mut [u8],
     length: u32,
 }
 impl NonResizableVec {
@@ -24,20 +24,27 @@ impl NonResizableVec {
     pub fn new() -> Self {
         let length = Self::length_or_fallback();
         let alloc = vec![0u8; length as usize].into_boxed_slice();
-        let pointer = unsafe { NonNull::new_unchecked(Box::into_raw(alloc)) };
-        NonResizableVec { pointer, length }
+        let arr = Box::leak(alloc);
+        NonResizableVec { arr, length }
     }
     pub fn resize_max(&mut self) {
         self.length = Self::length_or_fallback();
     }
     pub fn as_slice(&self) -> &[u8] {
-        unsafe { std::slice::from_raw_parts(self.pointer.as_ptr() as *const u8, self.length as usize) }
+        &self.arr[..self.length as usize]
     }
-    pub fn sec_buffer(&self, buffer_type: u32) -> SecBuffer {
+    pub fn set_length(&mut self, length: u32) {
+        if length as usize > self.arr.len() {
+            panic!()
+        } else {
+            self.length = length;
+        }
+    }
+    pub fn sec_buffer(&mut self, buffer_type: u32) -> SecBuffer {
         SecBuffer {
             cbBuffer: self.length,
             BufferType: buffer_type,
-            pvBuffer: self.pointer.as_ptr() as *mut c_void,
+            pvBuffer: self.arr.as_mut_ptr() as *mut c_void,
         }
     }
 }
@@ -48,8 +55,13 @@ impl Deref for NonResizableVec {
         self.as_slice()
     }
 }
+impl std::fmt::Debug for NonResizableVec {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.as_slice().fmt(f)
+    }
+}
 impl Drop for NonResizableVec {
     fn drop(&mut self) {
-        let _ = unsafe { Box::from_raw(self.pointer.as_ptr()) };
+        let _ = unsafe { Box::from_raw(self.arr.as_mut_ptr()) };
     }
 }

@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
 use crate::{
+    buffer::NonResizableVec,
     client::{
         StepOut,
         error::InitializeContextError,
@@ -54,7 +55,7 @@ impl<Usage, E1, S1, D1> ClientBuilder<Usage, E1, S1, D1> {
 }
 impl<Usage: OutboundUsable, E: EncryptionPolicy, S: SigningPolicy, D: DelegationPolicy> ClientBuilder<Usage, E, S, D> {
     pub fn initialize(self) -> Result<StepOut<Usage, E, S, D>, InitializeContextError> {
-        match super::step(self.cred, self.target_principal, None, 0, None, None)? {
+        match super::step(self.cred, self.target_principal, None, 0, NonResizableVec::new(), None)? {
             StepOut::Pending(p) => Ok(StepOut::Pending(p)),
             StepOut::Completed(c) => Ok(StepOut::Completed(c)),
         }

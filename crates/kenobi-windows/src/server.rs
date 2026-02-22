@@ -165,6 +165,7 @@ fn step<Usage: InboundUsable, S: SigningPolicy, D: DelegationPolicy>(
             None,
         )
     };
+    token_buffer.set_length(out_token_buffer.cbBuffer);
     match hres {
         SEC_E_OK => {
             let context = context.expect("get_or_inserted before");

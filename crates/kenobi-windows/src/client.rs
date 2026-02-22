@@ -144,7 +144,7 @@ impl<Usage: OutboundUsable, E: EncryptionPolicy, S: SigningPolicy, D: Delegation
             self.target_spn,
             Some(self.context),
             self.attributes,
-            Some(self.token_buffer),
+            self.token_buffer,
             Some(token),
         )
     }
@@ -164,10 +164,9 @@ fn step<Usage: OutboundUsable, E: EncryptionPolicy, S: SigningPolicy, D: Delegat
     target_spn: Option<Box<[u16]>>,
     mut context: Option<ContextHandle>,
     mut attributes: u32,
-    token_buffer: Option<NonResizableVec>,
+    mut token_buffer: NonResizableVec,
     in_token: Option<&[u8]>,
 ) -> Result<StepOut<Usage, E, S, D>, InitializeContextError> {
-    let mut token_buffer = token_buffer.unwrap_or_else(NonResizableVec::new);
     token_buffer.resize_max();
 
     let mut out_token_buffer = token_buffer.sec_buffer(SECBUFFER_TOKEN);
@@ -210,7 +209,7 @@ fn step<Usage: OutboundUsable, E: EncryptionPolicy, S: SigningPolicy, D: Delegat
             None,
         )
     };
-
+    token_buffer.set_length(out_token_buffer.cbBuffer);
     match hres {
         SEC_E_OK => {
             let context = context.expect("get_or_inserted before");

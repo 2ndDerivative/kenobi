@@ -3,7 +3,7 @@ use std::{ffi::c_void, ops::Deref};
 use windows::Win32::{
     Foundation::{SEC_E_INVALID_TOKEN, SEC_E_MESSAGE_ALTERED, SEC_E_OK},
     Security::Authentication::Identity::{
-        DecryptMessage, EncryptMessage, QueryContextAttributesW, SECBUFFER_DATA, SECBUFFER_STREAM_TRAILER,
+        DecryptMessage, EncryptMessage, QueryContextAttributesW, SECBUFFER_DATA, SECBUFFER_PADDING, SECBUFFER_STREAM,
         SECBUFFER_TOKEN, SECBUFFER_VERSION, SECPKG_ATTR_SIZES, SECQOP_WRAP_NO_ENCRYPT, SecBuffer, SecBufferDesc,
         SecPkgContext_Sizes,
     },
@@ -17,9 +17,8 @@ impl ContextHandle {
         let sizes = get_context_sizes(self).unwrap();
 
         let mut header = vec![0u8; sizes.cbSecurityTrailer as usize];
-        let mut signature = vec![0u8; sizes.cbMaxSignature as usize];
-        signature[..message.len()].copy_from_slice(message);
-        let mut trailer = vec![0u8; sizes.cbSecurityTrailer as usize];
+        let mut signature = message.to_vec();
+        let mut trailer = vec![0u8; sizes.cbBlockSize as usize];
 
         let mut buffers = vec![
             SecBuffer {
@@ -33,8 +32,8 @@ impl ContextHandle {
                 pvBuffer: signature.as_mut_ptr() as *mut c_void,
             },
             SecBuffer {
-                cbBuffer: trailer.len() as u32,
-                BufferType: SECBUFFER_STREAM_TRAILER,
+                cbBuffer: sizes.cbBlockSize,
+                BufferType: SECBUFFER_PADDING,
                 pvBuffer: trailer.as_mut_ptr() as *mut c_void,
             },
         ];
@@ -53,10 +52,10 @@ impl ContextHandle {
         };
         match res {
             HRESULT(0) => {
-                let header_sl = &header[..(buffers[0].cbBuffer as usize)];
-                let signature_sl = &signature[..(buffers[1].cbBuffer as usize)];
-                let trailer_sl = &trailer[..(buffers[2].cbBuffer as usize)];
-                let out = [header_sl, signature_sl, trailer_sl].concat();
+                let header_sl = &header[..buffers[0].cbBuffer as usize];
+                assert_eq!(message.len(), buffers[1].cbBuffer as usize);
+                let trailer_sl = &trailer[..buffers[2].cbBuffer as usize];
+                let out = [header_sl, &signature, trailer_sl].concat();
                 Ok(out)
             }
             err => Err(windows_result::Error::new(err, "")),
@@ -72,23 +71,18 @@ impl ContextHandle {
     }
 
     pub(crate) fn unwrap(&self, message: &[u8]) -> Result<Plaintext, Altered> {
-        let sizes = get_context_sizes(self).unwrap();
-
-        let mut plaintext = vec![0; sizes.cbMaxSignature as usize];
-        plaintext[..message.len()].copy_from_slice(message);
-
-        let mut trailer = vec![0; sizes.cbSecurityTrailer as usize];
+        let mut input = message.to_vec();
 
         let mut buffers = vec![
             SecBuffer {
+                BufferType: SECBUFFER_STREAM,
                 cbBuffer: message.len() as u32,
-                BufferType: SECBUFFER_DATA,
-                pvBuffer: plaintext.as_mut_ptr() as *mut c_void,
+                pvBuffer: input.as_mut_ptr() as *mut c_void,
             },
             SecBuffer {
-                cbBuffer: sizes.cbSecurityTrailer,
-                BufferType: SECBUFFER_TOKEN,
-                pvBuffer: trailer.as_mut_ptr() as *mut c_void,
+                BufferType: SECBUFFER_DATA,
+                cbBuffer: 0,
+                pvBuffer: std::ptr::null_mut(),
             },
         ];
         let buffer_desc = SecBufferDesc {
@@ -98,11 +92,17 @@ impl ContextHandle {
         };
         let mut pfqop = 0;
         let res = unsafe { DecryptMessage(self.deref(), &buffer_desc, 0, Some(&mut pfqop)) };
-        match res {
-            SEC_E_OK => Ok(Plaintext {
-                buffer: plaintext,
-                was_encrypted: pfqop != SECQOP_WRAP_NO_ENCRYPT,
-            }),
+        dbg!(res.message());
+        match dbg!(res) {
+            SEC_E_OK => {
+                let header_length = buffers[1].pvBuffer as usize - buffers[0].pvBuffer as usize;
+                let data_length = buffers[1].cbBuffer as usize;
+                let buffer = input[header_length..header_length + data_length].to_vec();
+                Ok(Plaintext {
+                    buffer,
+                    was_encrypted: pfqop != SECQOP_WRAP_NO_ENCRYPT,
+                })
+            }
             SEC_E_MESSAGE_ALTERED | SEC_E_INVALID_TOKEN => Err(Altered),
             err => panic!("Unexpected error code: {} (\"{}\")", err.0, err.message()),
         }

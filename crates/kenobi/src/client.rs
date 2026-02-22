@@ -108,16 +108,22 @@ impl<Usage, E: EncryptionState> ClientContext<Usage, Signing, E> {
         Signature::from_inner(self.inner.sign_message(message))
     }
     #[cfg(windows)]
-    pub fn verify_message(&self, message: &[u8]) {
-        self.inner.unwrap(message).unwrap();
+    pub fn unwrap(&self, message: &[u8]) -> impl std::ops::Deref<Target = [u8]> + use<Usage, E> {
+        self.inner.unwrap(message).unwrap()
     }
     #[cfg(unix)]
     pub fn sign_message(&self, message: &[u8]) -> Signature {
         Signature::from_inner(self.inner.sign_message(message).unwrap())
     }
     #[cfg(unix)]
-    pub fn verify_message(&self, message: &[u8]) {
+    pub fn unwrap(&self, message: &[u8]) {
         self.inner.unwrap_message(message).unwrap();
+    }
+}
+impl<Usage> ClientContext<Usage, Signing, Encryption> {
+    #[cfg(windows)]
+    pub fn encrypt_message(&self, message: &[u8]) -> impl std::ops::Deref<Target = [u8]> + use<Usage> {
+        self.inner.encrypt(message)
     }
 }
 

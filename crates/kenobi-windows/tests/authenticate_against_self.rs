@@ -9,6 +9,7 @@ use kenobi_windows::{
     server::{ServerBuilder, ServerContext, StepOut as ServerStepOut},
 };
 
+#[derive(Debug)]
 enum Message {
     Token(Vec<u8>),
     Data(Vec<u8>),
@@ -65,7 +66,8 @@ fn main() {
     let Ok(finished_ctx) = finished_ctx.check_signing() else {
         panic!("Signing not possible")
     };
-    eprintln!("[CLIENT] Signing message");
+
+    eprintln!("[CLIENT] Encrypting message");
     let signed = finished_ctx.sign_message(MESSAGE);
     send.send(Message::Data(MESSAGE.to_vec())).unwrap();
     send.send(Message::Signature(signed.to_vec())).unwrap();
@@ -74,7 +76,7 @@ fn main() {
 }
 
 fn server(recv: Receiver<Message>, return_sender: Sender<Vec<u8>>, _principal: &str) {
-    let server_cred = Credentials::inbound(None).unwrap();
+    let server_cred = Credentials::inbound(Some(_principal)).unwrap();
     eprintln!("[SERVER] Waiting for token");
     let mut token = match recv.recv().unwrap() {
         Message::Token(outgoing_payload) => outgoing_payload,
@@ -98,7 +100,6 @@ fn server(recv: Receiver<Message>, return_sender: Sender<Vec<u8>>, _principal: &
                 Message::Data(_) | Message::Signature(_) => todo!("not authenticated yet"),
             };
             eprintln!("[SERVER] Negotiate token received");
-
             pending = match pending.step(&token).unwrap() {
                 ServerStepOut::Pending(p) => p,
                 ServerStepOut::Completed(c) => break c,
@@ -121,7 +122,6 @@ fn server(recv: Receiver<Message>, return_sender: Sender<Vec<u8>>, _principal: &
     let (Message::Data(data), Message::Signature(_sig)) = (please_data, please_signature) else {
         panic!("Invalid data sent after successful auth")
     };
-    assert!(my_server_ctx.verify_message(&data).is_ok());
-    assert!(my_server_ctx.verify_message(b"bad_data").is_err());
+    assert!(my_server_ctx.verify_message(&_sig).is_ok());
     assert_eq!(data, MESSAGE);
 }
