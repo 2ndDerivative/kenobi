@@ -14,7 +14,7 @@ use windows::Win32::{
 use kenobi_core::cred::usage::InboundUsable;
 
 use crate::{
-    buffer::{RustSecBuffer, RustSecBuffers},
+    buffer::NonResizableVec,
     context_handle::ContextHandle,
     cred::Credentials,
     server::typestate::{DelegationPolicy, SigningPolicy},
@@ -34,7 +34,8 @@ pub struct ServerContext<Usage, S = NoSigning, D = NoDelegation> {
     cred: Credentials<Usage>,
     context: ContextHandle,
     attributes: u32,
-    sec_buffers: RustSecBuffers,
+    /// should never be resized
+    token_buffer: NonResizableVec,
     _enc: PhantomData<(D, S)>,
 }
 impl<Usage: InboundUsable, S, D> ServerContext<Usage, S, D>
@@ -46,20 +47,12 @@ where
         cred: Credentials<Usage>,
         first_token: &[u8],
     ) -> Result<StepOut<Usage, S, D>, AcceptContextError> {
-        let buf = RustSecBuffer::new_for_token().unwrap();
-        step(cred, None, 0, RustSecBuffers::new(Box::new([buf])), first_token)
+        step(cred, None, 0, NonResizableVec::new(), first_token)
     }
 }
 impl<Usage, D, S> ServerContext<Usage, D, S> {
     pub fn last_token(&self) -> Option<&[u8]> {
-        let token = self
-            .sec_buffers
-            .as_slice()
-            .iter()
-            .find(|x| x.buffer_type == SECBUFFER_TOKEN)
-            .expect("the Rust-controlled buffer should always have a token buffer")
-            .as_slice();
-        (!token.is_empty()).then_some(token)
+        (!self.token_buffer.is_empty()).then_some(&self.token_buffer)
     }
 }
 impl<Usage, D> ServerContext<Usage, CanSign, D> {
@@ -97,14 +90,14 @@ impl<Usage, S1, D1> ServerContext<Usage, S1, D1> {
             cred,
             context,
             attributes,
-            sec_buffers,
+            token_buffer,
             ..
         } = self;
         ServerContext {
             cred,
             context,
             attributes,
-            sec_buffers,
+            token_buffer,
             _enc: PhantomData,
         }
     }
@@ -114,23 +107,19 @@ pub struct PendingServerContext<Usage, S = NoSigning, D = NoDelegation> {
     cred: Credentials<Usage>,
     context: ContextHandle,
     attributes: u32,
-    sec_buffers: RustSecBuffers,
+    token_buffer: NonResizableVec,
     _enc: PhantomData<(S, D)>,
 }
 impl<Usage, S, D> PendingServerContext<Usage, S, D> {
     pub fn next_token(&self) -> &[u8] {
-        self.sec_buffers
-            .as_slice()
-            .iter()
-            .find(|t| t.buffer_type == SECBUFFER_TOKEN)
-            .expect("the Rust-controlled buffer should always have a token buffer")
-            .as_slice()
+        assert!(!self.token_buffer.is_empty());
+        &self.token_buffer
     }
 }
 
 impl<Usage: InboundUsable, S: SigningPolicy, D: DelegationPolicy> PendingServerContext<Usage, S, D> {
     pub fn step(self, token: &[u8]) -> Result<StepOut<Usage, S, D>, AcceptContextError> {
-        step(self.cred, Some(self.context), self.attributes, self.sec_buffers, token)
+        step(self.cred, Some(self.context), self.attributes, self.token_buffer, token)
     }
 }
 
@@ -138,16 +127,18 @@ fn step<Usage: InboundUsable, S: SigningPolicy, D: DelegationPolicy>(
     cred: Credentials<Usage>,
     mut context: Option<ContextHandle>,
     mut attributes: u32,
-    mut sec_buffers: RustSecBuffers,
+    mut token_buffer: NonResizableVec,
     in_token: &[u8],
 ) -> Result<StepOut<Usage, S, D>, AcceptContextError> {
-    let old_context_ptr = context.as_deref().map(std::ptr::from_ref);
-    sec_buffers
-        .as_mut_slice()
-        .iter_mut()
-        .find(|x| x.buffer_type == SECBUFFER_TOKEN)
-        .unwrap()
-        .reformat_as_input();
+    token_buffer.resize_max();
+
+    let mut out_token_buffer = token_buffer.sec_buffer(SECBUFFER_TOKEN);
+    let mut out_token_buffer_desc = SecBufferDesc {
+        ulVersion: SECBUFFER_VERSION,
+        cBuffers: 1,
+        pBuffers: &mut out_token_buffer,
+    };
+
     let mut in_buf = SecBuffer {
         cbBuffer: in_token.len() as u32,
         BufferType: SECBUFFER_TOKEN,
@@ -158,6 +149,7 @@ fn step<Usage: InboundUsable, S: SigningPolicy, D: DelegationPolicy>(
         cBuffers: 1,
         pBuffers: &mut in_buf,
     };
+    let old_context_ptr = context.as_deref().map(std::ptr::from_ref);
     let hres = unsafe {
         AcceptSecurityContext(
             Some(cred.as_ref().raw_handle()),
@@ -168,7 +160,7 @@ fn step<Usage: InboundUsable, S: SigningPolicy, D: DelegationPolicy>(
                 | <D as typestate::delegation::Sealed>::REQUEST_FLAGS,
             SECURITY_NATIVE_DREP,
             Some(context.get_or_insert_default().deref_mut()),
-            Some(sec_buffers.as_windows_ptr()),
+            Some(&mut out_token_buffer_desc),
             &mut attributes,
             None,
         )
@@ -181,7 +173,7 @@ fn step<Usage: InboundUsable, S: SigningPolicy, D: DelegationPolicy>(
                 cred,
                 context,
                 attributes,
-                sec_buffers,
+                token_buffer,
                 _enc: PhantomData,
             }))
         }
@@ -189,7 +181,7 @@ fn step<Usage: InboundUsable, S: SigningPolicy, D: DelegationPolicy>(
             cred,
             context,
             attributes,
-            sec_buffers,
+            token_buffer,
             _enc: PhantomData,
         })),
         SEC_E_INTERNAL_ERROR => Err(AcceptContextError::Internal),

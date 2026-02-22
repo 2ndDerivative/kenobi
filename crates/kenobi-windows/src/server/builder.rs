@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use crate::{
-    buffer::{RustSecBuffer, RustSecBuffers},
+    buffer::NonResizableVec,
     cred::Credentials,
     server::{
         StepOut,
@@ -41,8 +41,6 @@ impl<Usage, D> ServerBuilder<Usage, NoSigning, D> {
 }
 impl<Usage: InboundUsable, S: SigningPolicy, D: DelegationPolicy> ServerBuilder<Usage, S, D> {
     pub fn initialize(self, token: &[u8]) -> Result<StepOut<Usage, S, D>, AcceptContextError> {
-        let buf = RustSecBuffer::new_for_token().unwrap();
-        let buffers = RustSecBuffers::new(Box::new([buf]));
-        super::step(self.cred, None, 0, buffers, token)
+        super::step(self.cred, None, 0, NonResizableVec::new(), token)
     }
 }

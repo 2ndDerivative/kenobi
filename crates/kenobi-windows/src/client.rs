@@ -23,7 +23,7 @@ mod error;
 mod typestate;
 
 use crate::{
-    buffer::{RustSecBuffer, RustSecBuffers},
+    buffer::NonResizableVec,
     context::SessionKey,
     context_handle::ContextHandle,
     cred::Credentials,
@@ -37,34 +37,11 @@ pub use typestate::{
     MaybeSign, NoDelegation, SigningPolicy,
 };
 
-trait OutgoingToken {
-    fn sec_buffers(&self) -> &RustSecBuffers;
-    fn next_token(&self) -> Option<&[u8]> {
-        let buf = self
-            .sec_buffers()
-            .as_slice()
-            .iter()
-            .find(|t| t.buffer_type == SECBUFFER_TOKEN)
-            .expect("the rust-controlled secbuffer here should always have a token buffer");
-        (!buf.is_empty()).then_some(buf.as_slice())
-    }
-}
-impl<Usage, E, S, D> OutgoingToken for ClientContext<Usage, E, S, D> {
-    fn sec_buffers(&self) -> &RustSecBuffers {
-        &self.sec_buffers
-    }
-}
-impl<Usage, E, S, D> OutgoingToken for PendingClientContext<Usage, E, S, D> {
-    fn sec_buffers(&self) -> &RustSecBuffers {
-        &self.sec_buffers
-    }
-}
-
 pub struct ClientContext<Usage, E = CannotEncrypt, S = CannotSign, D = NoDelegation> {
     attributes: u32,
     cred: Credentials<Usage>,
     context: ContextHandle,
-    sec_buffers: RustSecBuffers,
+    token_buffer: NonResizableVec,
     _enc: PhantomData<(E, S, D)>,
 }
 impl<Usage, E, S, D> ClientContext<Usage, E, S, D> {
@@ -75,7 +52,7 @@ impl<Usage, E, S, D> ClientContext<Usage, E, S, D> {
         self.attributes
     }
     pub fn last_token(&self) -> Option<&[u8]> {
-        self.next_token()
+        (!self.token_buffer.is_empty()).then_some(self.token_buffer.as_slice())
     }
     pub fn get_session_key(&self) -> SessionKey {
         let mut key = SecPkgContext_SessionKey::default();
@@ -134,14 +111,14 @@ impl<Usage, S1, E1, D1> ClientContext<Usage, S1, E1, D1> {
             attributes,
             cred,
             context,
-            sec_buffers,
+            token_buffer,
             ..
         } = self;
         ClientContext {
             cred,
             context,
             attributes,
-            sec_buffers,
+            token_buffer,
             _enc: PhantomData,
         }
     }
@@ -151,7 +128,7 @@ pub struct PendingClientContext<Usage, E = CannotEncrypt, S = CannotSign, D = No
     target_spn: Option<Box<[u16]>>,
     cred: Credentials<Usage>,
     context: ContextHandle,
-    sec_buffers: RustSecBuffers,
+    token_buffer: NonResizableVec,
     attributes: u32,
     _enc: PhantomData<(E, S, D)>,
 }
@@ -164,14 +141,18 @@ impl<Usage: OutboundUsable, E: EncryptionPolicy, S: SigningPolicy, D: Delegation
             self.target_spn,
             Some(self.context),
             self.attributes,
-            Some(self.sec_buffers),
+            Some(self.token_buffer),
             Some(token),
         )
     }
 }
 impl<Usage, E, S, D> PendingClientContext<Usage, E, S, D> {
     pub fn next_token(&self) -> &[u8] {
-        <Self as OutgoingToken>::next_token(self).expect("Pending client context returned no token to transmit")
+        assert!(
+            !self.token_buffer.is_empty(),
+            "Pending client context returned no token to transmit"
+        );
+        self.token_buffer.as_slice()
     }
 }
 
@@ -180,25 +161,24 @@ fn step<Usage: OutboundUsable, E: EncryptionPolicy, S: SigningPolicy, D: Delegat
     target_spn: Option<Box<[u16]>>,
     mut context: Option<ContextHandle>,
     mut attributes: u32,
-    out_buffers: Option<RustSecBuffers>,
+    token_buffer: Option<NonResizableVec>,
     in_token: Option<&[u8]>,
 ) -> Result<StepOut<Usage, E, S, D>, InitializeContextError> {
-    let mut sec_buffers = out_buffers.unwrap_or_else(|| {
-        let buf = RustSecBuffer::new_for_token().unwrap();
-        RustSecBuffers::new(Box::new([buf]))
-    });
-    sec_buffers
-        .as_mut_slice()
-        .iter_mut()
-        .find(|x| x.buffer_type == SECBUFFER_TOKEN)
-        .unwrap()
-        .reformat_as_input();
-    let mut secbuf = in_token.map(|token| SecBuffer {
+    let mut token_buffer = token_buffer.unwrap_or_else(NonResizableVec::new);
+    token_buffer.resize_max();
+
+    let mut out_token_buffer = token_buffer.sec_buffer(SECBUFFER_TOKEN);
+    let mut out_token_buffer_desc = SecBufferDesc {
+        ulVersion: SECBUFFER_VERSION,
+        cBuffers: 1,
+        pBuffers: &mut out_token_buffer,
+    };
+    let mut in_token_buf = in_token.map(|token| SecBuffer {
         cbBuffer: token.len() as u32,
         BufferType: SECBUFFER_TOKEN,
         pvBuffer: token.as_ptr() as *mut c_void,
     });
-    let buf_desc = secbuf.as_mut().map(|s| SecBufferDesc {
+    let in_token_buf_desc = in_token_buf.as_mut().map(|s| SecBufferDesc {
         ulVersion: SECBUFFER_VERSION,
         cBuffers: 1,
         pBuffers: s,
@@ -211,10 +191,10 @@ fn step<Usage: OutboundUsable, E: EncryptionPolicy, S: SigningPolicy, D: Delegat
             ISC_REQ_MUTUAL_AUTH | E::ADDED_REQ_FLAGS | S::ADDED_REQ_FLAGS | D::ADDED_REQ_FLAGS,
             0,
             SECURITY_NATIVE_DREP,
-            buf_desc.as_ref().map(std::ptr::from_ref),
+            in_token_buf_desc.as_ref().map(std::ptr::from_ref),
             0,
             Some(context.get_or_insert_default().deref_mut()),
-            Some(sec_buffers.as_windows_ptr()),
+            Some(&mut out_token_buffer_desc),
             &mut attributes,
             None,
         )
@@ -225,7 +205,7 @@ fn step<Usage: OutboundUsable, E: EncryptionPolicy, S: SigningPolicy, D: Delegat
             attributes,
             cred,
             context,
-            sec_buffers,
+            token_buffer,
             _enc: PhantomData,
         })),
         SEC_I_COMPLETE_AND_CONTINUE | SEC_I_COMPLETE_NEEDED => {
@@ -235,7 +215,7 @@ fn step<Usage: OutboundUsable, E: EncryptionPolicy, S: SigningPolicy, D: Delegat
             target_spn,
             cred,
             context,
-            sec_buffers,
+            token_buffer,
             attributes,
             _enc: PhantomData,
         })),
