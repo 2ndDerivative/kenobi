@@ -37,14 +37,14 @@ pub use typestate::{
     MaybeSign, NoDelegation, SigningPolicy,
 };
 
-pub struct ClientContext<Usage, E = CannotEncrypt, S = CannotSign, D = NoDelegation> {
+pub struct ClientContext<Usage, S = CannotSign, E = CannotEncrypt, D = NoDelegation> {
     attributes: u32,
     cred: Credentials<Usage>,
     context: ContextHandle,
     token_buffer: NonResizableVec,
-    _enc: PhantomData<(E, S, D)>,
+    _enc: PhantomData<(S, E, D)>,
 }
-impl<Usage, E, S, D> ClientContext<Usage, E, S, D> {
+impl<Usage, S, E, D> ClientContext<Usage, S, E, D> {
     pub fn is_mutually_authenticated(&self) -> bool {
         self.attributes & ISC_RET_MUTUAL_AUTH != 0
     }
@@ -66,7 +66,7 @@ impl<Usage, E, S, D> ClientContext<Usage, E, S, D> {
         unsafe { Ok(SessionKey::new(key)) }
     }
 }
-impl<Usage, E, D> ClientContext<Usage, E, CanSign, D> {
+impl<Usage, E, D> ClientContext<Usage, CanSign, E, D> {
     pub fn sign_message(&self, message: &[u8]) -> Signature {
         self.context.wrap_sign(message).unwrap()
     }
@@ -74,7 +74,7 @@ impl<Usage, E, D> ClientContext<Usage, E, CanSign, D> {
         self.context.unwrap(message)
     }
 }
-impl<Usage, D> ClientContext<Usage, CanEncrypt, CanSign, D> {
+impl<Usage, D> ClientContext<Usage, CanSign, CanEncrypt, D> {
     pub fn encrypt(&self, message: &[u8]) -> Encrypted {
         self.context.wrap_encrypt(message).unwrap()
     }
@@ -87,8 +87,8 @@ impl<Usage: OutboundUsable> ClientContext<Usage> {
         ClientBuilder::new_from_credentials(cred, target_principal).initialize()
     }
 }
-type CheckSignResult<Usage, E, D> = Result<ClientContext<Usage, E, CanSign, D>, ClientContext<Usage, E, CannotSign, D>>;
-impl<Usage, E, D> ClientContext<Usage, E, MaybeSign, D> {
+type CheckSignResult<Usage, E, D> = Result<ClientContext<Usage, CanSign, E, D>, ClientContext<Usage, CannotSign, E, D>>;
+impl<Usage, E, D> ClientContext<Usage, MaybeSign, E, D> {
     pub fn check_signing(self) -> CheckSignResult<Usage, E, D> {
         if <MaybeSign as typestate::signing::Sealed>::requirements_met_manual(self.attributes) {
             Ok(self.convert_policy())
@@ -98,8 +98,8 @@ impl<Usage, E, D> ClientContext<Usage, E, MaybeSign, D> {
     }
 }
 type CheckEncryptionResult<Usage, S, D> =
-    Result<ClientContext<Usage, CanEncrypt, S, D>, ClientContext<Usage, CannotEncrypt, S, D>>;
-impl<Usage, S, D> ClientContext<Usage, MaybeEncrypt, S, D> {
+    Result<ClientContext<Usage, S, CanEncrypt, D>, ClientContext<Usage, S, CannotEncrypt, D>>;
+impl<Usage, S, D> ClientContext<Usage, S, MaybeEncrypt, D> {
     pub fn check_encryption(self) -> CheckEncryptionResult<Usage, S, D> {
         if <MaybeEncrypt as typestate::encryption::Sealed>::requirements_met_manual(self.attributes) {
             Ok(self.convert_policy())
@@ -127,18 +127,18 @@ impl<Usage, S1, E1, D1> ClientContext<Usage, S1, E1, D1> {
     }
 }
 
-pub struct PendingClientContext<Usage, E = CannotEncrypt, S = CannotSign, D = NoDelegation> {
+pub struct PendingClientContext<Usage, S = CannotSign, E = CannotEncrypt, D = NoDelegation> {
     target_spn: Option<Box<[u16]>>,
     cred: Credentials<Usage>,
     context: ContextHandle,
     token_buffer: NonResizableVec,
     attributes: u32,
-    _enc: PhantomData<(E, S, D)>,
+    _enc: PhantomData<(S, E, D)>,
 }
-impl<Usage: OutboundUsable, E: EncryptionPolicy, S: SigningPolicy, D: DelegationPolicy>
-    PendingClientContext<Usage, E, S, D>
+impl<Usage: OutboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: DelegationPolicy>
+    PendingClientContext<Usage, S, E, D>
 {
-    pub fn step(self, token: &[u8]) -> Result<StepOut<Usage, E, S, D>, InitializeContextError> {
+    pub fn step(self, token: &[u8]) -> Result<StepOut<Usage, S, E, D>, InitializeContextError> {
         step(
             self.cred,
             self.target_spn,
@@ -149,7 +149,7 @@ impl<Usage: OutboundUsable, E: EncryptionPolicy, S: SigningPolicy, D: Delegation
         )
     }
 }
-impl<Usage, E, S, D> PendingClientContext<Usage, E, S, D> {
+impl<Usage, S, E, D> PendingClientContext<Usage, S, E, D> {
     pub fn next_token(&self) -> &[u8] {
         assert!(
             !self.token_buffer.is_empty(),
@@ -159,14 +159,14 @@ impl<Usage, E, S, D> PendingClientContext<Usage, E, S, D> {
     }
 }
 
-fn step<Usage: OutboundUsable, E: EncryptionPolicy, S: SigningPolicy, D: DelegationPolicy>(
+fn step<Usage: OutboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: DelegationPolicy>(
     cred: Credentials<Usage>,
     target_spn: Option<Box<[u16]>>,
     mut context: Option<ContextHandle>,
     mut attributes: u32,
     mut token_buffer: NonResizableVec,
     in_token: Option<&[u8]>,
-) -> Result<StepOut<Usage, E, S, D>, InitializeContextError> {
+) -> Result<StepOut<Usage, S, E, D>, InitializeContextError> {
     token_buffer.resize_max();
 
     let mut out_token_buffer = token_buffer.sec_buffer(SECBUFFER_TOKEN);
@@ -248,7 +248,7 @@ fn step<Usage: OutboundUsable, E: EncryptionPolicy, S: SigningPolicy, D: Delegat
     }
 }
 
-pub enum StepOut<Usage, E = CannotEncrypt, S = CannotSign, D = NoDelegation> {
-    Pending(PendingClientContext<Usage, E, S, D>),
-    Completed(ClientContext<Usage, E, S, D>),
+pub enum StepOut<Usage, S = CannotSign, E = CannotEncrypt, D = NoDelegation> {
+    Pending(PendingClientContext<Usage, S, E, D>),
+    Completed(ClientContext<Usage, S, E, D>),
 }

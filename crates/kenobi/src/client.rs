@@ -27,7 +27,7 @@ mod typestate;
 /// The final token may be used using `ClientContext::last_token`
 pub struct ClientContext<Usage, S: SigningState, E: EncryptionState> {
     #[cfg(windows)]
-    inner: WinContext<Usage, E::Win, S::Win>,
+    inner: WinContext<Usage, S::Win, E::Win>,
     #[cfg(unix)]
     inner: UnixClientContext<Usage, S::Unix, E::Unix, NoDelegation>,
 }
@@ -129,7 +129,7 @@ impl<Usage> ClientContext<Usage, Signing, Encryption> {
 
 pub struct PendingClientContext<Usage, S: UnfinishedSigningState, E: UnfinishedEncryptionState> {
     #[cfg(windows)]
-    inner: WinPendingClientContext<Usage, E::Win, S::Win>,
+    inner: WinPendingClientContext<Usage, S::Win, E::Win>,
     #[cfg(unix)]
     inner: UnixPendingClientContext<Usage, S::Unix, E::Unix, NoDelegation>,
 }
@@ -172,7 +172,7 @@ pub enum StepOut<Usage, S: UnfinishedSigningState, E: UnfinishedEncryptionState>
 }
 impl<Usage, S: UnfinishedSigningState, E: UnfinishedEncryptionState> StepOut<Usage, S, E> {
     #[cfg(windows)]
-    fn from_windows(win: WinStepOut<Usage, E::Win, S::Win>) -> Self {
+    fn from_windows(win: WinStepOut<Usage, S::Win, E::Win>) -> Self {
         match win {
             WinStepOut::Completed(inner) => Self::Finished(ClientContext { inner }),
             WinStepOut::Pending(inner) => Self::Pending(PendingClientContext { inner }),
