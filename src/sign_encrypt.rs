@@ -2,7 +2,7 @@ pub struct Signature {
     #[cfg(windows)]
     pub(crate) win: kenobi_windows::sign::Signature,
     #[cfg(unix)]
-    pub(crate) unix: kenobi_unix::sign_encrypt::SecurityBuffer,
+    pub(crate) unix: kenobi_unix::sign_encrypt::Signed,
 }
 #[cfg(windows)]
 impl Signature {
@@ -12,7 +12,7 @@ impl Signature {
 }
 #[cfg(unix)]
 impl Signature {
-    pub(crate) fn from_inner(unix: kenobi_unix::sign_encrypt::SecurityBuffer) -> Self {
+    pub(crate) fn from_inner(unix: kenobi_unix::sign_encrypt::Signed) -> Self {
         Self { unix }
     }
 }

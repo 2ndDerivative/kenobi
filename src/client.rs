@@ -107,7 +107,7 @@ impl<E: EncryptionState> ClientContext<Signing, E> {
         Signature::from_inner(self.inner.sign_message(message).unwrap())
     }
     pub fn verify_message(&self, message: &[u8]) {
-        self.inner.verify_message(message).unwrap()
+        self.inner.unwrap_message(message).unwrap();
     }
 }
 
