@@ -1,4 +1,4 @@
-use std::{ffi::c_void, fmt::Debug, slice, sync::LazyLock};
+use std::{ffi::c_void, fmt::Debug, ptr::NonNull, slice, sync::LazyLock};
 
 use windows::Win32::Security::Authentication::Identity::{
     FreeContextBuffer, QuerySecurityPackageInfoW, SECBUFFER_TOKEN, SECBUFFER_VERSION, SecBufferDesc,
@@ -62,13 +62,13 @@ unsafe impl Send for RustSecBuffer {}
 pub struct RustSecBuffers {
     version: u32,
     count: u32,
-    ptr: *mut RustSecBuffer,
+    ptr: NonNull<RustSecBuffer>,
 }
 impl RustSecBuffers {
     pub fn new(buffers: Box<[RustSecBuffer]>) -> Self {
         let ptr = Box::leak(buffers);
         let count = ptr.len() as u32;
-        let ptr = ptr.as_mut_ptr();
+        let ptr = NonNull::new(ptr.as_mut_ptr()).unwrap();
         RustSecBuffers {
             version: SECBUFFER_VERSION,
             count,
@@ -76,10 +76,10 @@ impl RustSecBuffers {
         }
     }
     pub fn as_slice(&self) -> &[RustSecBuffer] {
-        unsafe { std::slice::from_raw_parts(self.ptr, self.count as usize) }
+        unsafe { std::slice::from_raw_parts(self.ptr.as_ptr(), self.count as usize) }
     }
     pub fn as_mut_slice(&mut self) -> &mut [RustSecBuffer] {
-        unsafe { std::slice::from_raw_parts_mut(self.ptr, self.count as usize) }
+        unsafe { std::slice::from_raw_parts_mut(self.ptr.as_ptr(), self.count as usize) }
     }
 
     pub fn as_windows_ptr(&mut self) -> *mut SecBufferDesc {
