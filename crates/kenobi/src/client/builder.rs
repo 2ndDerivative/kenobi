@@ -1,6 +1,3 @@
-#[cfg(unix)]
-use kenobi_core::cred::usage::OutboundUsable;
-#[cfg(windows)]
 use kenobi_core::cred::usage::OutboundUsable;
 #[cfg(windows)]
 use kenobi_windows::client::NoDelegation;
@@ -75,7 +72,7 @@ impl<Usage: OutboundUsable, S: UnfinishedSigningState, E: UnfinishedEncryptionSt
 }
 
 #[cfg(unix)]
-impl<Usage, S: UnfinishedSigningState, E: UnfinishedEncryptionState> ClientBuilder<Usage, S, E> {
+impl<Usage: OutboundUsable, S: UnfinishedSigningState, E: UnfinishedEncryptionState> ClientBuilder<Usage, S, E> {
     #[must_use]
     pub fn initialize(self) -> StepOut<Usage, S, E> {
         StepOut::from_unix(self.inner.initialize().unwrap())

@@ -151,7 +151,7 @@ impl<Usage: OutboundUsable, S: UnfinishedSigningState, E: UnfinishedEncryptionSt
 }
 
 #[cfg(unix)]
-impl<Usage, S: UnfinishedSigningState, E: UnfinishedEncryptionState> PendingClientContext<Usage, S, E> {
+impl<Usage: OutboundUsable, S: UnfinishedSigningState, E: UnfinishedEncryptionState> PendingClientContext<Usage, S, E> {
     pub fn step(self, token: &[u8]) -> StepOut<Usage, S, E> {
         match self.inner.step(token).unwrap() {
             UnixStepOut::Finished(inner) => StepOut::Finished(ClientContext { inner }),

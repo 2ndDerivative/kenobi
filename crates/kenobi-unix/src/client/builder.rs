@@ -73,7 +73,7 @@ impl<CU, S1, E1, D1> ClientBuilder<CU, S1, E1, D1> {
         })
     }
 }
-impl<CU, S: SignPolicy, E: EncryptionPolicy, D: DelegationPolicy> ClientBuilder<CU, S, E, D> {
+impl<CU: OutboundUsable, S: SignPolicy, E: EncryptionPolicy, D: DelegationPolicy> ClientBuilder<CU, S, E, D> {
     pub fn initialize(self) -> Result<StepOut<CU, S, E, D>, Error> {
         step(
             None,

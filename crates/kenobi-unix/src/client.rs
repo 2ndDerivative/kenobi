@@ -115,7 +115,7 @@ pub struct PendingClientContext<CU, S, E, D> {
     valid_until: Instant,
     marker: PhantomData<(S, E, D)>,
 }
-impl<CU, S: SignPolicy, E: EncryptionPolicy, D: DelegationPolicy> PendingClientContext<CU, S, E, D> {
+impl<CU: OutboundUsable, S: SignPolicy, E: EncryptionPolicy, D: DelegationPolicy> PendingClientContext<CU, S, E, D> {
     pub fn step(self, token: &[u8]) -> Result<StepOut<CU, S, E, D>, Error> {
         step(
             Some(self.context),
@@ -126,6 +126,8 @@ impl<CU, S: SignPolicy, E: EncryptionPolicy, D: DelegationPolicy> PendingClientC
             self.channel_bindings,
         )
     }
+}
+impl<CU, S: SignPolicy, E: EncryptionPolicy, D: DelegationPolicy> PendingClientContext<CU, S, E, D> {
     pub fn next_token(&self) -> &[u8] {
         self.next_token.as_slice()
     }
@@ -138,7 +140,7 @@ fn empty_token() -> gss_buffer_desc {
     }
 }
 
-fn step<CU, S: SignPolicy, E: EncryptionPolicy, D: DelegationPolicy>(
+fn step<CU: OutboundUsable, S: SignPolicy, E: EncryptionPolicy, D: DelegationPolicy>(
     mut ctx: Option<ContextHandle>,
     cred: Credentials<CU>,
     mut target_principal: Option<NameHandle>,
