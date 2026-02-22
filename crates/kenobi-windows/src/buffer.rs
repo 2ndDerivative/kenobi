@@ -8,7 +8,7 @@ const FALLBACK_BUFFER_SIZE: u32 = 48256;
 static MAX_TOKEN_BUFFER_SIZE: LazyLock<windows_result::Result<u32>> = LazyLock::new(get_max_buffer_size);
 fn get_max_buffer_size() -> windows_result::Result<u32> {
     let buf = unsafe { QuerySecurityPackageInfoW(NEGOTIATE)? };
-    let size = unsafe { dbg!((*buf).cbMaxToken) };
+    let size = unsafe { (*buf).cbMaxToken };
     unsafe { FreeContextBuffer(buf as *mut c_void)? };
     Ok(size)
 }

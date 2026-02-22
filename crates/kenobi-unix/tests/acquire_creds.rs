@@ -10,7 +10,6 @@ fn main() {
     let cred = match Credentials::outbound(client_name.as_deref(), None) {
         Ok(cred) => cred,
         Err(err) => {
-            dbg!(err);
             eprintln!("Error: {err}");
             panic!()
         }
