@@ -102,10 +102,15 @@ impl<E: EncryptionState> ClientContext<Signing, E> {
     pub fn sign_message(&self, message: &[u8]) -> Signature {
         Signature::from_inner(self.inner.sign_message(message))
     }
+    #[cfg(windows)]
+    pub fn verify_message(&self, message: &[u8]) {
+        self.inner.verify_message(message).unwrap();
+    }
     #[cfg(unix)]
     pub fn sign_message(&self, message: &[u8]) -> Signature {
         Signature::from_inner(self.inner.sign_message(message).unwrap())
     }
+    #[cfg(unix)]
     pub fn verify_message(&self, message: &[u8]) {
         self.inner.unwrap_message(message).unwrap();
     }
