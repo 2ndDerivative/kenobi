@@ -1,4 +1,3 @@
-pub mod channel_bindings;
 pub mod client;
 mod context;
 pub mod cred;

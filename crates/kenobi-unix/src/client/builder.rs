@@ -1,11 +1,10 @@
 use std::{marker::PhantomData, time::Duration};
 
-use kenobi_core::cred::usage::OutboundUsable;
+use kenobi_core::{channel_bindings::Channel, cred::usage::OutboundUsable};
 use libgssapi_sys::GSS_C_NT_USER_NAME;
 
 use crate::{
     Error,
-    channel_bindings::Channel,
     client::{
         MaybeSign, StepOut, step,
         typestate::{

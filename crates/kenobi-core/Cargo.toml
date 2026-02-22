@@ -6,3 +6,7 @@ license.workspace = true
 edition.workspace = true
 
 [dependencies]
+native-tls = { version = "0.2.18", optional = true }
+
+[features]
+native-tls = ["dep:native-tls"]

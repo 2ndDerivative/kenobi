@@ -235,6 +235,9 @@ dependencies = [
 [[package]]
 name = "kenobi-core"
 version = "0.1.0"
+dependencies = [
+ "native-tls",
+]
 
 [[package]]
 name = "kenobi-unix"
