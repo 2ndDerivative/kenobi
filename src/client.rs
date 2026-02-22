@@ -36,7 +36,7 @@ impl ClientContext<typestate::NoSigning, typestate::NoEncryption> {
         target_principal: Option<&str>,
     ) -> StepOut<typestate::NoSigning, typestate::NoEncryption> {
         #[cfg(windows)]
-        return StepOut::from_windows(WinContext::new_from_cred(cred.into_platform(), target_principal, None).unwrap());
+        return StepOut::from_windows(WinContext::new_from_cred(cred.into_platform(), target_principal).unwrap());
         #[cfg(unix)]
         StepOut::from_unix(UnixClientContext::new_from_cred(cred.into_platform(), target_principal).unwrap())
     }

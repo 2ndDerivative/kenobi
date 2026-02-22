@@ -65,8 +65,8 @@ impl<S: SigningState> ClientBuilder<S, NoEncryption> {
 #[cfg(windows)]
 impl<S: UnfinishedSigningState, E: UnfinishedEncryptionState> ClientBuilder<S, E> {
     #[must_use]
-    pub fn initialize(self, server_init_token: Option<&[u8]>) -> StepOut<S, E> {
-        StepOut::from_windows(self.inner.initialize(server_init_token).unwrap())
+    pub fn initialize(self) -> StepOut<S, E> {
+        StepOut::from_windows(self.inner.initialize().unwrap())
     }
 }
 
