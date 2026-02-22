@@ -1,12 +1,12 @@
 pub struct Signature {
     #[cfg(windows)]
-    pub(crate) win: kenobi_windows::sign::Signature,
+    pub(crate) win: kenobi_windows::sign_encrypt::Signature,
     #[cfg(unix)]
     pub(crate) unix: kenobi_unix::sign_encrypt::Signed,
 }
 #[cfg(windows)]
 impl Signature {
-    pub(crate) fn from_inner(win: kenobi_windows::sign::Signature) -> Self {
+    pub(crate) fn from_inner(win: kenobi_windows::sign_encrypt::Signature) -> Self {
         Self { win }
     }
 }

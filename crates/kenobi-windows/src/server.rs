@@ -18,7 +18,7 @@ use crate::{
     context_handle::ContextHandle,
     cred::Credentials,
     server::typestate::{DelegationPolicy, EncryptionPolicy, SigningPolicy},
-    sign::{Altered, Plaintext, Signature},
+    sign_encrypt::{Altered, Plaintext, Signature},
 };
 
 mod builder;

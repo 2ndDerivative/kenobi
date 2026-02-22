@@ -6,7 +6,7 @@ pub mod context;
 mod context_handle;
 pub mod cred;
 pub mod server;
-pub mod sign;
+pub mod sign_encrypt;
 
 const NEGOTIATE: PCWSTR = w!("Negotiate");
 

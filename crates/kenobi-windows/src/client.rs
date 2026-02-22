@@ -27,7 +27,7 @@ use crate::{
     context::SessionKey,
     context_handle::ContextHandle,
     cred::Credentials,
-    sign::{Altered, Encrypted, Plaintext, Signature},
+    sign_encrypt::{Altered, Encrypted, Plaintext, Signature},
 };
 
 pub use builder::ClientBuilder;
