@@ -57,7 +57,7 @@ impl<Usage, D, S> ServerContext<Usage, D, S> {
 }
 impl<Usage, D> ServerContext<Usage, CanSign, D> {
     pub fn sign_message(&self, message: &[u8]) -> Signature {
-        self.context.sign_message(message)
+        self.context.wrap_sign(message).unwrap()
     }
     pub fn verify_message(&self, message: &[u8]) -> Result<(), Altered> {
         self.context.unwrap(message)?;
@@ -165,9 +165,9 @@ fn step<Usage: InboundUsable, S: SigningPolicy, D: DelegationPolicy>(
             None,
         )
     };
-    let context = context.expect("get_or_inserted before");
     match hres {
         SEC_E_OK => {
+            let context = context.expect("get_or_inserted before");
             // Flag checks
             Ok(StepOut::Completed(ServerContext {
                 cred,
@@ -177,13 +177,16 @@ fn step<Usage: InboundUsable, S: SigningPolicy, D: DelegationPolicy>(
                 _enc: PhantomData,
             }))
         }
-        SEC_I_CONTINUE_NEEDED => Ok(StepOut::Pending(PendingServerContext {
-            cred,
-            context,
-            attributes,
-            token_buffer,
-            _enc: PhantomData,
-        })),
+        SEC_I_CONTINUE_NEEDED => {
+            let context = context.expect("get_or_inserted before");
+            Ok(StepOut::Pending(PendingServerContext {
+                cred,
+                context,
+                attributes,
+                token_buffer,
+                _enc: PhantomData,
+            }))
+        }
         SEC_E_INTERNAL_ERROR => Err(AcceptContextError::Internal),
         SEC_E_INVALID_HANDLE => Err(AcceptContextError::InvalidHandle),
         SEC_E_INVALID_TOKEN => Err(AcceptContextError::InvalidToken),

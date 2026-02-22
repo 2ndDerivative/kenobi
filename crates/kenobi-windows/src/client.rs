@@ -27,7 +27,7 @@ use crate::{
     context::SessionKey,
     context_handle::ContextHandle,
     cred::Credentials,
-    sign::{Altered, Signature},
+    sign::{Altered, Encrypted, Plaintext, Signature},
 };
 
 pub use builder::ClientBuilder;
@@ -54,7 +54,7 @@ impl<Usage, E, S, D> ClientContext<Usage, E, S, D> {
     pub fn last_token(&self) -> Option<&[u8]> {
         (!self.token_buffer.is_empty()).then_some(self.token_buffer.as_slice())
     }
-    pub fn get_session_key(&self) -> SessionKey {
+    pub fn get_session_key(&self) -> windows_result::Result<SessionKey> {
         let mut key = SecPkgContext_SessionKey::default();
         unsafe {
             QueryContextAttributesW(
@@ -62,18 +62,21 @@ impl<Usage, E, S, D> ClientContext<Usage, E, S, D> {
                 SECPKG_ATTR_SESSION_KEY,
                 std::ptr::from_mut(&mut key) as *mut c_void,
             )
-        }
-        .unwrap();
-        unsafe { SessionKey::new(key) }
+        }?;
+        unsafe { Ok(SessionKey::new(key)) }
     }
 }
 impl<Usage, E, D> ClientContext<Usage, E, CanSign, D> {
     pub fn sign_message(&self, message: &[u8]) -> Signature {
-        self.context.sign_message(message)
+        self.context.wrap_sign(message).unwrap()
     }
-    pub fn verify_message(&self, message: &[u8]) -> Result<(), Altered> {
-        self.context.unwrap(message)?;
-        Ok(())
+    pub fn unwrap(&self, message: &[u8]) -> Result<Plaintext, Altered> {
+        self.context.unwrap(message)
+    }
+}
+impl<Usage, D> ClientContext<Usage, CanEncrypt, CanSign, D> {
+    pub fn encrypt(&self, message: &[u8]) -> Encrypted {
+        self.context.wrap_encrypt(message).unwrap()
     }
 }
 impl<Usage: OutboundUsable> ClientContext<Usage> {
@@ -173,11 +176,19 @@ fn step<Usage: OutboundUsable, E: EncryptionPolicy, S: SigningPolicy, D: Delegat
         cBuffers: 1,
         pBuffers: &mut out_token_buffer,
     };
-    let mut in_token_buf = in_token.map(|token| SecBuffer {
-        cbBuffer: token.len() as u32,
-        BufferType: SECBUFFER_TOKEN,
-        pvBuffer: token.as_ptr() as *mut c_void,
-    });
+    let mut in_token_buf = in_token
+        .map(|token| {
+            let cb_buffer = token
+                .len()
+                .try_into()
+                .map_err(|_| InitializeContextError::InvalidToken)?;
+            Ok(SecBuffer {
+                cbBuffer: cb_buffer,
+                BufferType: SECBUFFER_TOKEN,
+                pvBuffer: token.as_ptr() as *mut c_void,
+            })
+        })
+        .transpose()?;
     let in_token_buf_desc = in_token_buf.as_mut().map(|s| SecBufferDesc {
         ulVersion: SECBUFFER_VERSION,
         cBuffers: 1,
@@ -199,26 +210,32 @@ fn step<Usage: OutboundUsable, E: EncryptionPolicy, S: SigningPolicy, D: Delegat
             None,
         )
     };
-    let context = context.expect("get_or_inserted before");
+
     match hres {
-        SEC_E_OK => Ok(StepOut::Completed(ClientContext {
-            attributes,
-            cred,
-            context,
-            token_buffer,
-            _enc: PhantomData,
-        })),
+        SEC_E_OK => {
+            let context = context.expect("get_or_inserted before");
+            Ok(StepOut::Completed(ClientContext {
+                attributes,
+                cred,
+                context,
+                token_buffer,
+                _enc: PhantomData,
+            }))
+        }
         SEC_I_COMPLETE_AND_CONTINUE | SEC_I_COMPLETE_NEEDED => {
             panic!("CompleteAuthToken is not supported by Negotiate")
         }
-        SEC_I_CONTINUE_NEEDED => Ok(StepOut::Pending(PendingClientContext {
-            target_spn,
-            cred,
-            context,
-            token_buffer,
-            attributes,
-            _enc: PhantomData,
-        })),
+        SEC_I_CONTINUE_NEEDED => {
+            let context = context.expect("get_or_inserted before");
+            Ok(StepOut::Pending(PendingClientContext {
+                target_spn,
+                cred,
+                context,
+                token_buffer,
+                attributes,
+                _enc: PhantomData,
+            }))
+        }
         SEC_E_INTERNAL_ERROR => Err(InitializeContextError::Internal),
         SEC_E_INVALID_HANDLE => Err(InitializeContextError::InvalidHandle),
         SEC_E_INVALID_TOKEN => Err(InitializeContextError::InvalidToken),

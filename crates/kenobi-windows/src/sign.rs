@@ -3,9 +3,9 @@ use std::{ffi::c_void, ops::Deref};
 use windows::Win32::{
     Foundation::{SEC_E_INVALID_TOKEN, SEC_E_MESSAGE_ALTERED, SEC_E_OK},
     Security::Authentication::Identity::{
-        DecryptMessage, EncryptMessage, QueryContextAttributesW, SECBUFFER_DATA, SECBUFFER_STREAM_HEADER,
-        SECBUFFER_STREAM_TRAILER, SECBUFFER_VERSION, SECPKG_ATTR_STREAM_SIZES, SECQOP_WRAP_NO_ENCRYPT, SecBuffer,
-        SecBufferDesc, SecPkgContext_StreamSizes,
+        DecryptMessage, EncryptMessage, QueryContextAttributesW, SECBUFFER_DATA, SECBUFFER_STREAM_TRAILER,
+        SECBUFFER_TOKEN, SECBUFFER_VERSION, SECPKG_ATTR_SIZES, SECQOP_WRAP_NO_ENCRYPT, SecBuffer, SecBufferDesc,
+        SecPkgContext_Sizes,
     },
 };
 use windows_result::HRESULT;
@@ -13,28 +13,27 @@ use windows_result::HRESULT;
 use crate::context_handle::ContextHandle;
 
 impl ContextHandle {
-    /// ONLY USE WITH FINISHED CONTEXT
-    pub(crate) fn sign_message(&self, message: &[u8]) -> Signature {
-        let sizes = get_context_sizes(self);
+    fn wrap_raw(&self, encrypt: bool, message: &[u8]) -> windows_result::Result<Vec<u8>> {
+        let sizes = get_context_sizes(self).unwrap();
 
-        let mut header = vec![0u8; sizes.cbHeader as usize].into_boxed_slice();
-        let mut trailer = vec![0u8; sizes.cbTrailer as usize].into_boxed_slice();
-
-        let mut data = message.to_vec();
+        let mut header = vec![0u8; sizes.cbSecurityTrailer as usize];
+        let mut signature = vec![0u8; sizes.cbMaxSignature as usize];
+        signature[..message.len()].copy_from_slice(message);
+        let mut trailer = vec![0u8; sizes.cbSecurityTrailer as usize];
 
         let mut buffers = vec![
             SecBuffer {
-                cbBuffer: sizes.cbHeader,
-                BufferType: SECBUFFER_STREAM_HEADER,
+                cbBuffer: sizes.cbSecurityTrailer,
+                BufferType: SECBUFFER_TOKEN,
                 pvBuffer: header.as_mut_ptr() as *mut c_void,
             },
             SecBuffer {
-                cbBuffer: data.len() as u32,
+                cbBuffer: message.len() as u32,
                 BufferType: SECBUFFER_DATA,
-                pvBuffer: data.as_mut_ptr() as *mut c_void,
+                pvBuffer: signature.as_mut_ptr() as *mut c_void,
             },
             SecBuffer {
-                cbBuffer: sizes.cbTrailer as u32,
+                cbBuffer: trailer.len() as u32,
                 BufferType: SECBUFFER_STREAM_TRAILER,
                 pvBuffer: trailer.as_mut_ptr() as *mut c_void,
             },
@@ -44,37 +43,52 @@ impl ContextHandle {
             cBuffers: buffers.len() as u32,
             pBuffers: buffers.as_mut_ptr(),
         };
-        let res = unsafe { EncryptMessage(self.deref(), SECQOP_WRAP_NO_ENCRYPT, &sec_buffer, 0) };
-
+        let res = unsafe {
+            EncryptMessage(
+                self.deref(),
+                if encrypt { 0 } else { SECQOP_WRAP_NO_ENCRYPT },
+                &sec_buffer,
+                0,
+            )
+        };
         match res {
             HRESULT(0) => {
-                let signature = [&header, data.as_slice(), &trailer].concat();
-                Signature(signature)
+                let header_sl = &header[..(buffers[0].cbBuffer as usize)];
+                let signature_sl = &signature[..(buffers[1].cbBuffer as usize)];
+                let trailer_sl = &trailer[..(buffers[2].cbBuffer as usize)];
+                let out = [header_sl, signature_sl, trailer_sl].concat();
+                Ok(out)
             }
-            _ => panic!(),
+            err => Err(windows_result::Error::new(err, "")),
         }
     }
-    pub(crate) fn unwrap(&self, message: &[u8]) -> Result<Plaintext, Altered> {
-        let sizes = get_context_sizes(self);
+    /// ONLY USE WITH FINISHED CONTEXT
+    pub(crate) fn wrap_sign(&self, message: &[u8]) -> windows_result::Result<Signature> {
+        self.wrap_raw(false, message).map(Signature)
+    }
+    /// ONLY USED IN A FINISHED, ENCRYPTION-ALLOWED CONTEXT
+    pub(crate) fn wrap_encrypt(&self, message: &[u8]) -> windows_result::Result<Encrypted> {
+        self.wrap_raw(true, message).map(Encrypted)
+    }
 
-        let mut buffer = vec![0; sizes.cbMaximumMessage as usize];
-        buffer.copy_from_slice(message);
+    pub(crate) fn unwrap(&self, message: &[u8]) -> Result<Plaintext, Altered> {
+        let sizes = get_context_sizes(self).unwrap();
+
+        let mut plaintext = vec![0; sizes.cbMaxSignature as usize];
+        plaintext[..message.len()].copy_from_slice(message);
+
+        let mut trailer = vec![0; sizes.cbSecurityTrailer as usize];
 
         let mut buffers = vec![
             SecBuffer {
-                cbBuffer: sizes.cbHeader,
-                BufferType: SECBUFFER_STREAM_HEADER,
-                pvBuffer: message.as_ptr() as *mut c_void,
-            },
-            SecBuffer {
-                cbBuffer: buffer.len() as u32,
+                cbBuffer: message.len() as u32,
                 BufferType: SECBUFFER_DATA,
-                pvBuffer: buffer.as_mut_ptr() as *mut c_void,
+                pvBuffer: plaintext.as_mut_ptr() as *mut c_void,
             },
             SecBuffer {
-                cbBuffer: sizes.cbTrailer,
-                BufferType: SECBUFFER_STREAM_TRAILER,
-                pvBuffer: message[(message.len() - sizes.cbTrailer as usize)..].as_ptr() as *mut c_void,
+                cbBuffer: sizes.cbSecurityTrailer,
+                BufferType: SECBUFFER_TOKEN,
+                pvBuffer: trailer.as_mut_ptr() as *mut c_void,
             },
         ];
         let buffer_desc = SecBufferDesc {
@@ -86,7 +100,7 @@ impl ContextHandle {
         let res = unsafe { DecryptMessage(self.deref(), &buffer_desc, 0, Some(&mut pfqop)) };
         match res {
             SEC_E_OK => Ok(Plaintext {
-                buffer,
+                buffer: plaintext,
                 was_encrypted: pfqop != SECQOP_WRAP_NO_ENCRYPT,
             }),
             SEC_E_MESSAGE_ALTERED | SEC_E_INVALID_TOKEN => Err(Altered),
@@ -95,17 +109,16 @@ impl ContextHandle {
     }
 }
 
-fn get_context_sizes(ctx: &ContextHandle) -> SecPkgContext_StreamSizes {
-    let mut sizes = SecPkgContext_StreamSizes::default();
+fn get_context_sizes(ctx: &ContextHandle) -> windows_result::Result<SecPkgContext_Sizes> {
+    let mut sizes = SecPkgContext_Sizes::default();
     unsafe {
         QueryContextAttributesW(
             ctx.deref(),
-            SECPKG_ATTR_STREAM_SIZES,
+            SECPKG_ATTR_SIZES,
             std::ptr::from_mut(&mut sizes) as *mut c_void,
-        )
-        .unwrap()
+        )?
     };
-    sizes
+    Ok(sizes)
 }
 
 pub struct Plaintext {
@@ -132,6 +145,19 @@ impl Signature {
     }
 }
 impl Deref for Signature {
+    type Target = [u8];
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+#[derive(Clone, Debug, PartialEq)]
+pub struct Encrypted(Vec<u8>);
+impl Encrypted {
+    pub fn new(sig: &[u8]) -> Self {
+        Self(sig.to_vec())
+    }
+}
+impl Deref for Encrypted {
     type Target = [u8];
     fn deref(&self) -> &Self::Target {
         &self.0

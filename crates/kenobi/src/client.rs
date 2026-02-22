@@ -48,7 +48,7 @@ impl<Usage, S: SigningState, E: EncryptionState> ClientContext<Usage, S, E> {
         self.inner.last_token()
     }
     pub fn session_key(&self) -> impl std::ops::Deref<Target = [u8]> {
-        self.inner.get_session_key()
+        self.inner.get_session_key().unwrap()
     }
 }
 
@@ -109,7 +109,7 @@ impl<Usage, E: EncryptionState> ClientContext<Usage, Signing, E> {
     }
     #[cfg(windows)]
     pub fn verify_message(&self, message: &[u8]) {
-        self.inner.verify_message(message).unwrap();
+        self.inner.unwrap(message).unwrap();
     }
     #[cfg(unix)]
     pub fn sign_message(&self, message: &[u8]) -> Signature {
