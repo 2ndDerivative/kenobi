@@ -1,12 +1,9 @@
 use kenobi_core::cred::usage::OutboundUsable;
 
 #[cfg(unix)]
-use kenobi_unix::{
-    client::{
-        ClientContext as UnixClientContext, NoDelegation, PendingClientContext as UnixPendingClientContext,
-        StepOut as UnixStepOut,
-    },
-    cred::CredentialsUsage,
+use kenobi_unix::client::{
+    ClientContext as UnixClientContext, NoDelegation, PendingClientContext as UnixPendingClientContext,
+    StepOut as UnixStepOut,
 };
 #[cfg(windows)]
 use kenobi_windows::client::{
@@ -19,7 +16,7 @@ pub use typestate::{
     UnfinishedEncryptionState, UnfinishedSigningState,
 };
 
-use crate::{Credentials, sign_encrypt::Signature};
+use crate::{Credentials, CredentialsUsage, sign_encrypt::Signature};
 
 mod builder;
 mod typestate;
