@@ -33,6 +33,7 @@ fn main() {
     let creds = Credentials::outbound(Some(&client_principal)).unwrap();
     let ClientStepOut::Pending(mut client) = ClientBuilder::new_from_credentials(creds, Some(&server_principal))
         .request_signing()
+        .request_encryption()
         .initialize()
         .unwrap()
     else {
@@ -67,8 +68,12 @@ fn main() {
         panic!("Signing not possible")
     };
 
+    let Ok(finished_ctx) = finished_ctx.check_encryption() else {
+        panic!("Encryption not possible")
+    };
+
     eprintln!("[CLIENT] Encrypting message");
-    let signed = finished_ctx.sign_message(MESSAGE);
+    let signed = finished_ctx.encrypt(MESSAGE);
     send.send(Message::Data(MESSAGE.to_vec())).unwrap();
     send.send(Message::Signature(signed.to_vec())).unwrap();
 
@@ -83,9 +88,10 @@ fn server(recv: Receiver<Message>, return_sender: Sender<Vec<u8>>, _principal: &
         Message::Data(_) | Message::Signature(_) => todo!("not authenticated yet"),
     };
     eprintln!("[Server] Received initial token, setting up");
-    let my_server_ctx: ServerContext<_, _> = 'ctx: {
+    let my_server_ctx: ServerContext<_, _, _, _> = 'ctx: {
         let mut pending = match ServerBuilder::new_from_credentials(server_cred)
             .offer_signing()
+            .offer_encryption()
             .initialize(&token)
             .unwrap()
         {
@@ -122,6 +128,8 @@ fn server(recv: Receiver<Message>, return_sender: Sender<Vec<u8>>, _principal: &
     let (Message::Data(data), Message::Signature(_sig)) = (please_data, please_signature) else {
         panic!("Invalid data sent after successful auth")
     };
-    assert!(my_server_ctx.verify_message(&_sig).is_ok());
+    dbg!(String::from_utf8_lossy(&_sig));
+    let plaintext = my_server_ctx.verify_message(&_sig).unwrap();
+    dbg!(String::from_utf8_lossy(&plaintext));
     assert_eq!(data, MESSAGE);
 }

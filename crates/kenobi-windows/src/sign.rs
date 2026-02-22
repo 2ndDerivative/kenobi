@@ -92,8 +92,7 @@ impl ContextHandle {
         };
         let mut pfqop = 0;
         let res = unsafe { DecryptMessage(self.deref(), &buffer_desc, 0, Some(&mut pfqop)) };
-        dbg!(res.message());
-        match dbg!(res) {
+        match res {
             SEC_E_OK => {
                 let header_length = buffers[1].pvBuffer as usize - buffers[0].pvBuffer as usize;
                 let data_length = buffers[1].cbBuffer as usize;

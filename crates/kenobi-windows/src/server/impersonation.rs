@@ -13,7 +13,7 @@ use crate::{
     server::{ServerContext, typestate::CanDelegate},
 };
 
-impl<S> ServerContext<Both, S, CanDelegate> {
+impl<S, E> ServerContext<Both, S, E, CanDelegate> {
     pub fn impersonate_client(&self) -> Result<ImpersonationGuard<'_>, ImpersonationError> {
         match unsafe { ImpersonateSecurityContext(self.context.deref()) } {
             Ok(()) => Ok(ImpersonationGuard {

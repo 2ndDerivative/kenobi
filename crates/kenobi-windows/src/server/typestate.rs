@@ -43,3 +43,28 @@ impl SigningPolicy for NoSigning {}
 pub enum MaybeSign {}
 impl SigningPolicy for MaybeSign {}
 pub enum CanSign {}
+
+pub(crate) mod encrypt {
+    use windows::Win32::Security::Authentication::Identity::{
+        ASC_REQ_CONFIDENTIALITY, ASC_REQ_FLAGS, ASC_RET_CONFIDENTIALITY,
+    };
+
+    pub trait Sealed {
+        const RETURN_FLAGS: u32;
+        const REQUEST_FLAGS: ASC_REQ_FLAGS;
+    }
+    impl Sealed for super::NoEncryption {
+        const RETURN_FLAGS: u32 = 0;
+        const REQUEST_FLAGS: ASC_REQ_FLAGS = ASC_REQ_FLAGS(0);
+    }
+    impl Sealed for super::MaybeEncrypt {
+        const RETURN_FLAGS: u32 = ASC_RET_CONFIDENTIALITY;
+        const REQUEST_FLAGS: ASC_REQ_FLAGS = ASC_REQ_CONFIDENTIALITY;
+    }
+}
+pub trait EncryptionPolicy: encrypt::Sealed {}
+pub enum NoEncryption {}
+impl EncryptionPolicy for NoEncryption {}
+pub enum MaybeEncrypt {}
+impl EncryptionPolicy for MaybeEncrypt {}
+pub enum CanEncrypt {}
