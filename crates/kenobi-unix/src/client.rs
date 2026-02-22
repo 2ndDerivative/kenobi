@@ -5,7 +5,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use kenobi_markers::cred::usage::OutboundUsable;
+use kenobi_core::cred::usage::OutboundUsable;
 use libgssapi_sys::{
     _GSS_C_INDEFINITE, GSS_C_MUTUAL_FLAG, GSS_S_COMPLETE, GSS_S_CONTINUE_NEEDED, gss_buffer_desc,
     gss_buffer_desc_struct, gss_channel_bindings_struct, gss_delete_sec_context, gss_init_sec_context,

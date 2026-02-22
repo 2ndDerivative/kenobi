@@ -1,3 +1,5 @@
+#[cfg(unix)]
+use kenobi_core::cred::usage::OutboundUsable;
 #[cfg(windows)]
 use kenobi_core::cred::usage::OutboundUsable;
 #[cfg(windows)]
@@ -20,7 +22,7 @@ pub struct ClientBuilder<Usage, S: SigningState, E: EncryptionState> {
     #[cfg(windows)]
     inner: kenobi_windows::client::ClientBuilder<Usage, E::Win, S::Win, NoDelegation>,
     #[cfg(unix)]
-    inner: kenobi_unix::client::ClientBuilder<S::Unix, E::Unix, NoDelegation>,
+    inner: kenobi_unix::client::ClientBuilder<Usage, S::Unix, E::Unix, NoDelegation>,
 }
 
 #[cfg(windows)]
@@ -36,13 +38,13 @@ impl<Usage> ClientBuilder<Usage, NoSigning, NoEncryption> {
 }
 
 #[cfg(unix)]
-impl ClientBuilder<NoSigning, NoEncryption> {
+impl<Usage: OutboundUsable> ClientBuilder<Usage, NoSigning, NoEncryption> {
     #[must_use]
     pub fn new_from_credentials(
-        cred: Credentials,
+        cred: Credentials<Usage>,
         target_principal: Option<&str>,
-    ) -> ClientBuilder<NoSigning, NoEncryption> {
-        let inner = kenobi_unix::client::ClientBuilder::new_from_credentials(cred.inner, target_principal).unwrap();
+    ) -> ClientBuilder<Usage, NoSigning, NoEncryption> {
+        let inner = kenobi_unix::client::ClientBuilder::new(cred.inner, target_principal).unwrap();
         ClientBuilder { inner }
     }
 }
@@ -73,9 +75,9 @@ impl<Usage: OutboundUsable, S: UnfinishedSigningState, E: UnfinishedEncryptionSt
 }
 
 #[cfg(unix)]
-impl<S: UnfinishedSigningState, E: UnfinishedEncryptionState> ClientBuilder<S, E> {
+impl<Usage, S: UnfinishedSigningState, E: UnfinishedEncryptionState> ClientBuilder<Usage, S, E> {
     #[must_use]
-    pub fn initialize(self) -> StepOut<S, E> {
+    pub fn initialize(self) -> StepOut<Usage, S, E> {
         StepOut::from_unix(self.inner.initialize().unwrap())
     }
 }

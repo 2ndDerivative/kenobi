@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use kenobi_core::cred::usage::OutboundUsable;
 #[cfg(unix)]
-use kenobi_unix::credentials::Credentials as UnixCred;
+use kenobi_unix::cred::{Credentials as UnixCred, CredentialsUsage};
 #[cfg(windows)]
 use kenobi_windows::cred::Credentials as WinCred;
 
@@ -31,7 +31,7 @@ pub struct Credentials<Usage> {
     #[cfg(windows)]
     inner: WinCred<Usage>,
     #[cfg(unix)]
-    inner: UnixCred,
+    inner: UnixCred<Usage>,
     _marker: PhantomData<Usage>,
 }
 impl<Usage: CredentialsUsage + OutboundUsable> Credentials<Usage> {
@@ -40,7 +40,7 @@ impl<Usage: CredentialsUsage + OutboundUsable> Credentials<Usage> {
         self.inner
     }
     #[cfg(unix)]
-    fn into_platform(self) -> UnixCred {
+    fn into_platform(self) -> UnixCred<Usage> {
         self.inner
     }
     /// Grab the default credentials handle for a given principal (or the default user principal)
@@ -50,7 +50,7 @@ impl<Usage: CredentialsUsage + OutboundUsable> Credentials<Usage> {
         #[cfg(windows)]
         let inner = WinCred::acquire_default(principal).map_err(|win| CredentialsError { win })?;
         #[cfg(unix)]
-        let inner = UnixCred::acquire_default(usage.to_unix(), principal).map_err(|unix| CredentialsError { unix })?;
+        let inner = UnixCred::new(principal, None).map_err(|unix| CredentialsError { unix })?;
         Ok(Self {
             inner,
             _marker: PhantomData,

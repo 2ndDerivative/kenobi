@@ -1,4 +1,4 @@
-pub use kenobi_markers::cred::usage::{Both, Inbound, Outbound};
+pub use kenobi_core::cred::usage::{Both, Inbound, Outbound};
 use std::{
     marker::PhantomData,
     ptr::NonNull,
@@ -22,7 +22,7 @@ pub struct Credentials<Usage = Outbound> {
     _usage: PhantomData<Usage>,
 }
 impl<Usage: CredentialsUsage> Credentials<Usage> {
-    fn new(principal: Option<&str>, time_required: Option<Duration>) -> Result<Self, super::Error> {
+    pub fn new(principal: Option<&str>, time_required: Option<Duration>) -> Result<Self, super::Error> {
         let mut name = principal
             .map(|p| NameHandle::import(p, unsafe { GSS_C_NT_USER_NAME }))
             .transpose()?;

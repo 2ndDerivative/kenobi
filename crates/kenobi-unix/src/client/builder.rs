@@ -1,6 +1,6 @@
 use std::{marker::PhantomData, time::Duration};
 
-use kenobi_markers::cred::usage::OutboundUsable;
+use kenobi_core::cred::usage::OutboundUsable;
 use libgssapi_sys::GSS_C_NT_USER_NAME;
 
 use crate::{
