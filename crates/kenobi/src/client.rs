@@ -42,9 +42,11 @@ impl<Usage: CredentialsUsage + OutboundUsable> ClientContext<Usage, NoSigning, N
 }
 #[cfg(windows)]
 impl<Usage, S: SigningState, E: EncryptionState> ClientContext<Usage, S, E> {
+    #[must_use]
     pub fn last_token(&self) -> Option<&[u8]> {
         self.inner.last_token()
     }
+    #[must_use]
     pub fn session_key(&self) -> impl std::ops::Deref<Target = [u8]> {
         self.inner.get_session_key().unwrap()
     }
@@ -52,9 +54,11 @@ impl<Usage, S: SigningState, E: EncryptionState> ClientContext<Usage, S, E> {
 
 #[cfg(unix)]
 impl<Usage, S: SigningState, E: EncryptionState> ClientContext<Usage, S, E> {
+    #[must_use]
     pub fn last_token(&self) -> Option<&[u8]> {
         self.inner.last_token()
     }
+    #[must_use]
     pub fn session_key(&self) -> impl std::ops::Deref<Target = [u8]> {
         self.inner.session_key().unwrap()
     }
@@ -102,6 +106,7 @@ impl<Usage, S: SigningState> ClientContext<Usage, S, MaybeEncryption> {
 
 impl<Usage, E: EncryptionState> ClientContext<Usage, Signing, E> {
     #[cfg(windows)]
+    #[must_use]
     pub fn sign_message(&self, message: &[u8]) -> Signature {
         Signature::from_inner(self.inner.sign_message(message))
     }
@@ -120,6 +125,7 @@ impl<Usage, E: EncryptionState> ClientContext<Usage, Signing, E> {
 }
 impl<Usage> ClientContext<Usage, Signing, Encryption> {
     #[cfg(windows)]
+    #[must_use]
     pub fn encrypt_message(&self, message: &[u8]) -> impl std::ops::Deref<Target = [u8]> + use<Usage> {
         self.inner.encrypt(message)
     }
@@ -134,6 +140,7 @@ pub struct PendingClientContext<Usage, S: UnfinishedSigningState, E: UnfinishedE
 
 #[cfg(windows)]
 impl<Usage, S: UnfinishedSigningState, E: UnfinishedEncryptionState> PendingClientContext<Usage, S, E> {
+    #[must_use]
     pub fn next_token(&self) -> &[u8] {
         self.inner.next_token()
     }
