@@ -14,9 +14,10 @@ pub use builder::ClientBuilder;
 use kenobi_core::typestate::{Encryption, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, Signing};
 pub use typestate::{EncryptionState, SigningState, UnfinishedEncryptionState, UnfinishedSigningState};
 
-#[cfg(windows)]
-use crate::sign_encrypt::WrapError;
-use crate::{Credentials, CredentialsUsage, sign_encrypt::Signature};
+use crate::{
+    Credentials, CredentialsUsage,
+    sign_encrypt::{Signature, UnwrapError, WrapError},
+};
 
 mod builder;
 mod typestate;
@@ -107,27 +108,18 @@ impl<Usage, S: SigningState> ClientContext<Usage, S, MaybeEncryption> {
 }
 
 impl<Usage, E: EncryptionState> ClientContext<Usage, Signing, E> {
-    #[cfg(windows)]
     pub fn sign(&self, message: &[u8]) -> Result<Signature, WrapError> {
-        Ok(Signature::from_inner(self.inner.sign(message)?))
+        Ok(Signature::from_inner(
+            self.inner.sign(message).map_err(WrapError::from_inner)?,
+        ))
     }
-    #[cfg(windows)]
-    pub fn unwrap(&self, message: &[u8]) -> impl std::ops::Deref<Target = [u8]> + use<Usage, E> {
-        self.inner.unwrap(message).unwrap()
-    }
-    #[cfg(unix)]
-    pub fn sign(&self, message: &[u8]) -> Signature {
-        Signature::from_inner(self.inner.sign_message(message).unwrap())
-    }
-    #[cfg(unix)]
-    pub fn unwrap(&self, message: &[u8]) {
-        self.inner.unwrap_message(message).unwrap();
+    pub fn unwrap(&self, message: &[u8]) -> Result<impl std::ops::Deref<Target = [u8]> + use<Usage, E>, UnwrapError> {
+        self.inner.unwrap(message).map_err(UnwrapError::from_inner)
     }
 }
 impl<Usage> ClientContext<Usage, Signing, Encryption> {
-    #[cfg(windows)]
     pub fn encrypt(&self, message: &[u8]) -> Result<impl std::ops::Deref<Target = [u8]> + use<Usage>, WrapError> {
-        Ok(self.inner.encrypt(message)?)
+        self.inner.encrypt(message).map_err(WrapError::from_inner)
     }
 }
 

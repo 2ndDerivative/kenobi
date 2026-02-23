@@ -33,6 +33,18 @@ impl Signature {
 pub struct WrapError {
     #[cfg(windows)]
     pub(crate) inner: kenobi_windows::sign_encrypt::WrapError,
+    #[cfg(unix)]
+    pub(crate) inner: kenobi_unix::Error,
+}
+impl WrapError {
+    #[cfg(windows)]
+    pub(crate) fn from_inner(inner: kenobi_windows::sign_encrypt::WrapError) -> Self {
+        Self { inner }
+    }
+    #[cfg(unix)]
+    pub(crate) fn from_inner(inner: kenobi_unix::Error) -> Self {
+        Self { inner }
+    }
 }
 impl std::error::Error for WrapError {
     fn cause(&self) -> Option<&dyn std::error::Error> {
@@ -45,9 +57,30 @@ impl Display for WrapError {
     }
 }
 
-#[cfg(windows)]
-impl From<kenobi_windows::sign_encrypt::WrapError> for WrapError {
-    fn from(inner: kenobi_windows::sign_encrypt::WrapError) -> Self {
-        WrapError { inner }
+#[derive(Debug)]
+pub struct UnwrapError {
+    #[cfg(windows)]
+    pub(crate) inner: kenobi_windows::sign_encrypt::Altered,
+    #[cfg(unix)]
+    pub(crate) inner: kenobi_unix::Error,
+}
+impl UnwrapError {
+    #[cfg(windows)]
+    pub(crate) fn from_inner(inner: kenobi_windows::sign_encrypt::Altered) -> Self {
+        Self { inner }
+    }
+    #[cfg(unix)]
+    pub(crate) fn from_inner(inner: kenobi_unix::Error) -> Self {
+        Self { inner }
+    }
+}
+impl std::error::Error for UnwrapError {
+    fn cause(&self) -> Option<&dyn std::error::Error> {
+        Some(&self.inner)
+    }
+}
+impl Display for UnwrapError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.inner.fmt(f)
     }
 }

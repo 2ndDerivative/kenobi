@@ -1,4 +1,4 @@
-use std::ffi::c_void;
+use std::{ffi::c_void, ops::Deref};
 
 use kenobi_core::typestate::{Encryption, Signing};
 use libgssapi_sys::{GSS_C_QOP_DEFAULT, gss_buffer_desc, gss_ctx_id_struct, gss_release_buffer, gss_unwrap, gss_wrap};
@@ -39,7 +39,7 @@ impl<CU, C, E, D> ClientContext<CU, C, E, D> {
         }
         Ok(SecurityBuffer(output_buffer))
     }
-    fn unwrap(&self, message: &[u8]) -> Result<(SecurityBuffer, i32), Error> {
+    fn unwrap_raw(&self, message: &[u8]) -> Result<(SecurityBuffer, i32), Error> {
         let mut minor = 0;
         let mut input_buffer_desc = gss_buffer_desc {
             length: message.len(),
@@ -71,12 +71,12 @@ impl<CU, C, E, D> ClientContext<CU, C, E, D> {
 }
 
 impl<CU, E, D> ClientContext<CU, Signing, E, D> {
-    pub fn sign_message(&self, message: &[u8]) -> Result<Signed, Error> {
+    pub fn sign(&self, message: &[u8]) -> Result<Signed, Error> {
         self.wrap(false, message).map(Signed)
     }
 
-    pub fn unwrap_message(&self, message: &[u8]) -> Result<Plaintext, Error> {
-        let (buffer, conf_state) = self.unwrap(message)?;
+    pub fn unwrap(&self, message: &[u8]) -> Result<Plaintext, Error> {
+        let (buffer, conf_state) = self.unwrap_raw(message)?;
         Ok(Plaintext {
             buffer,
             was_encrypted: conf_state != 0,
@@ -84,7 +84,7 @@ impl<CU, E, D> ClientContext<CU, Signing, E, D> {
     }
 }
 impl<CU, S, D> ClientContext<CU, S, Encryption, D> {
-    pub fn encrypt_message(&self, message: &[u8]) -> Result<Encrypted, Error> {
+    pub fn encrypt(&self, message: &[u8]) -> Result<Encrypted, Error> {
         self.wrap(true, message).map(Encrypted)
     }
 }
@@ -92,6 +92,12 @@ impl<CU, S, D> ClientContext<CU, S, Encryption, D> {
 pub struct Plaintext {
     buffer: SecurityBuffer,
     was_encrypted: bool,
+}
+impl Deref for Plaintext {
+    type Target = [u8];
+    fn deref(&self) -> &Self::Target {
+        self.as_slice()
+    }
 }
 impl Plaintext {
     pub fn as_slice(&self) -> &[u8] {
@@ -106,6 +112,12 @@ pub struct Encrypted(SecurityBuffer);
 impl Encrypted {
     pub fn as_slice(&self) -> &[u8] {
         self.0.as_slice()
+    }
+}
+impl Deref for Encrypted {
+    type Target = [u8];
+    fn deref(&self) -> &Self::Target {
+        self.as_slice()
     }
 }
 impl AsRef<[u8]> for Encrypted {
