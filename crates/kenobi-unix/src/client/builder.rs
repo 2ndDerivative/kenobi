@@ -3,7 +3,7 @@ use std::{marker::PhantomData, time::Duration};
 use kenobi_core::{
     channel_bindings::Channel,
     cred::usage::OutboundUsable,
-    typestate::{MaybeEncryption, MaybeSigning, NoEncryption, NoSigning},
+    typestate::{DeniedSigning, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning},
 };
 use libgssapi_sys::GSS_C_NT_USER_NAME;
 
@@ -43,6 +43,9 @@ impl<CU: OutboundUsable> ClientBuilder<CU, NoSigning, NoEncryption, NoDelegation
 }
 impl<CU, E, D> ClientBuilder<CU, NoSigning, E, D> {
     pub fn request_signing(self) -> ClientBuilder<CU, MaybeSigning, E, D> {
+        self.convert_policy()
+    }
+    pub fn deny_signing(self) -> ClientBuilder<CU, DeniedSigning, E, D> {
         self.convert_policy()
     }
 }

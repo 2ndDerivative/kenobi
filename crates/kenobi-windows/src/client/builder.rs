@@ -38,7 +38,7 @@ impl<Usage, E, D> ClientBuilder<Usage, NoSigning, E, D> {
     pub fn request_signing(self) -> ClientBuilder<Usage, MaybeSigning, E, D> {
         self.convert_policy()
     }
-    pub fn explicitly_deny_signing(self) -> ClientBuilder<Usage, DeniedSigning, E, D> {
+    pub fn deny_signing(self) -> ClientBuilder<Usage, DeniedSigning, E, D> {
         self.convert_policy()
     }
 }

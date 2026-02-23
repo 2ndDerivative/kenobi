@@ -1,4 +1,6 @@
-use kenobi_core::typestate::{Encryption, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, Signing};
+use kenobi_core::typestate::{
+    DeniedSigning, Encryption, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, Signing,
+};
 
 pub(crate) mod sealed {
     #[cfg(windows)]
@@ -7,6 +9,7 @@ pub(crate) mod sealed {
     pub trait UnfinishedSigningSealed: kenobi_unix::client::SignPolicy {}
     impl UnfinishedSigningSealed for super::NoSigning {}
     impl UnfinishedSigningSealed for super::MaybeSigning {}
+    impl UnfinishedSigningSealed for super::DeniedSigning {}
 
     #[cfg(windows)]
     pub trait UnfinishedEncryptionSealed: kenobi_windows::client::EncryptionPolicy {}
@@ -17,6 +20,7 @@ pub(crate) mod sealed {
 
     pub trait SigningSealed {}
     impl SigningSealed for super::NoSigning {}
+    impl SigningSealed for super::DeniedSigning {}
     impl SigningSealed for super::MaybeSigning {}
     impl SigningSealed for super::Signing {}
 
@@ -34,6 +38,9 @@ pub trait UnfinishedSigningState: SigningState + sealed::UnfinishedSigningSealed
 
 impl SigningState for NoSigning {}
 impl UnfinishedSigningState for NoSigning {}
+
+impl SigningState for DeniedSigning {}
+impl UnfinishedSigningState for DeniedSigning {}
 
 impl SigningState for MaybeSigning {}
 impl UnfinishedSigningState for MaybeSigning {}

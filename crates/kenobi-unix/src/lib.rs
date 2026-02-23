@@ -7,5 +7,7 @@ mod name;
 pub mod sign_encrypt;
 
 pub mod typestate {
-    pub use kenobi_core::typestate::{Encryption, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, Signing};
+    pub use kenobi_core::typestate::{
+        DeniedSigning, Encryption, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, Signing,
+    };
 }

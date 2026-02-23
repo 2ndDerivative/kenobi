@@ -1,4 +1,4 @@
-use kenobi_core::{channel_bindings::Channel, cred::usage::OutboundUsable};
+use kenobi_core::{channel_bindings::Channel, cred::usage::OutboundUsable, typestate::DeniedSigning};
 #[cfg(windows)]
 use kenobi_windows::client::NoDelegation;
 
@@ -59,7 +59,14 @@ impl<Usage, E: EncryptionState> ClientBuilder<Usage, NoSigning, E> {
         let inner = { inner.request_signing() };
         ClientBuilder { inner }
     }
+    #[must_use]
+    pub fn deny_signing(self) -> ClientBuilder<Usage, DeniedSigning, E> {
+        let ClientBuilder { inner } = self;
+        let inner = inner.deny_signing();
+        ClientBuilder { inner }
+    }
 }
+
 impl<Usage, S: SigningState> ClientBuilder<Usage, S, NoEncryption> {
     #[must_use]
     pub fn request_encryption(self) -> ClientBuilder<Usage, S, MaybeEncryption> {

@@ -1,11 +1,12 @@
 pub(crate) mod sign {
-    use kenobi_core::typestate::{MaybeSigning, NoSigning};
+    use kenobi_core::typestate::{DeniedSigning, MaybeSigning, NoSigning};
     use libgssapi_sys::GSS_C_INTEG_FLAG;
 
     pub trait Sealed {
         const REQUESTED_FLAGS: u32 = 0;
     }
     impl Sealed for NoSigning {}
+    impl Sealed for DeniedSigning {}
     impl Sealed for MaybeSigning {
         const REQUESTED_FLAGS: u32 = GSS_C_INTEG_FLAG;
     }
