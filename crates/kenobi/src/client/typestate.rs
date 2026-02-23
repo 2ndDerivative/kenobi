@@ -10,7 +10,7 @@ pub(crate) mod sealed {
 
     #[cfg(windows)]
     pub trait UnfinishedEncryptionSealed:
-        super::EncryptionState<Win: kenobi_windows::client::EncryptionPolicy>
+        super::EncryptionState<Inner: kenobi_windows::client::EncryptionPolicy>
     {
     }
     #[cfg(unix)]
