@@ -72,5 +72,7 @@ pub mod channel_bindings {
     pub use kenobi_core::channel_bindings::Channel;
 }
 pub mod typestate {
-    pub use kenobi_core::typestate::{Encryption, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, Signing};
+    pub use kenobi_core::typestate::{
+        DeniedSigning, Encryption, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, Signing,
+    };
 }
