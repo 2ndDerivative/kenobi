@@ -10,7 +10,7 @@ use kenobi_windows::cred::Credentials as WinCred;
 #[cfg(windows)]
 pub use kenobi_windows::cred::CredentialsUsage;
 pub mod client;
-mod sign_encrypt;
+pub mod sign_encrypt;
 
 pub mod cred {
     pub use kenobi_core::cred::usage::{Both, Inbound, InboundUsable, Outbound, OutboundUsable};
