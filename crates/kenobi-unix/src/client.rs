@@ -209,7 +209,7 @@ fn step<CU: OutboundUsable, S: SignPolicy, E: EncryptionPolicy, D: DelegationPol
             if let Some(err) = MechanismErrorCode::new(minor_status) {
                 return Err(err.into());
             };
-            Err(GssErrorCode::new(code).unwrap().into())
+            Err(GssErrorCode::new(code).expect("is not GSS_C_COMPLETE").into())
         }
     }
 }
