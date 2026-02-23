@@ -10,7 +10,7 @@ use windows::Win32::{
 };
 use windows_result::HRESULT;
 
-use crate::context_handle::ContextHandle;
+use crate::context::ContextHandle;
 
 impl ContextHandle {
     fn wrap_raw(&self, encrypt: bool, message: &[u8]) -> windows_result::Result<Vec<u8>> {

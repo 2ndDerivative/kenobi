@@ -8,7 +8,7 @@ use windows::Win32::{
 
 use crate::{
     client::ClientBuilder,
-    context_handle::ContextHandle,
+    context::ContextHandle,
     cred::Credentials,
     server::{ServerContext, typestate::CanDelegate},
 };

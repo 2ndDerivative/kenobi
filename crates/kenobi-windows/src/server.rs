@@ -15,7 +15,7 @@ use kenobi_core::cred::usage::InboundUsable;
 
 use crate::{
     buffer::NonResizableVec,
-    context_handle::ContextHandle,
+    context::ContextHandle,
     cred::Credentials,
     server::typestate::{DelegationPolicy, EncryptionPolicy, SigningPolicy},
     sign_encrypt::{Altered, Plaintext, Signature},

@@ -1,6 +1,31 @@
-use std::{ffi::c_void, ops::Deref};
+use std::{
+    ffi::c_void,
+    ops::{Deref, DerefMut},
+};
 
-use windows::Win32::Security::Authentication::Identity::{FreeContextBuffer, SecPkgContext_SessionKey};
+use windows::Win32::Security::{
+    Authentication::Identity::{DeleteSecurityContext, FreeContextBuffer, SecPkgContext_SessionKey},
+    Credentials::SecHandle,
+};
+
+#[derive(Default)]
+pub(crate) struct ContextHandle(SecHandle);
+impl Deref for ContextHandle {
+    type Target = SecHandle;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl DerefMut for ContextHandle {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+impl Drop for ContextHandle {
+    fn drop(&mut self) {
+        let _ = unsafe { DeleteSecurityContext(&self.0) };
+    }
+}
 
 pub struct SessionKey {
     key: &'static [u8],

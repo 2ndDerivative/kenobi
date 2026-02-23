@@ -3,7 +3,6 @@ use windows::core::{PCWSTR, w};
 mod buffer;
 pub mod client;
 pub mod context;
-mod context_handle;
 pub mod cred;
 pub mod server;
 pub mod sign_encrypt;

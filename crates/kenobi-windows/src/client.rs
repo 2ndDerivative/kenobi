@@ -25,8 +25,7 @@ mod typestate;
 
 use crate::{
     buffer::NonResizableVec,
-    context::SessionKey,
-    context_handle::ContextHandle,
+    context::{ContextHandle, SessionKey},
     cred::Credentials,
     sign_encrypt::{Altered, Encrypted, Plaintext, Signature},
 };
