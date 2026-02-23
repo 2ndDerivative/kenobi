@@ -24,7 +24,7 @@ mod builder;
 mod typestate;
 
 pub use builder::ClientBuilder;
-pub use kenobi_core::typestate::{Encryption, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, Signing};
+use kenobi_core::typestate::{Encryption, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, Signing};
 pub use typestate::{Delegatable, EncryptionPolicy, MaybeDelegatable, NoDelegation, SignPolicy};
 
 pub struct ClientContext<CU, S, E, D> {

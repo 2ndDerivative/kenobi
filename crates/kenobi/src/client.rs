@@ -11,7 +11,7 @@ use kenobi_windows::client::{
 };
 
 pub use builder::ClientBuilder;
-pub use kenobi_core::typestate::{Encryption, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, Signing};
+use kenobi_core::typestate::{Encryption, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, Signing};
 pub use typestate::{EncryptionState, SigningState, UnfinishedEncryptionState, UnfinishedSigningState};
 
 use crate::{Credentials, CredentialsUsage, sign_encrypt::Signature};

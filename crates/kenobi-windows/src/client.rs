@@ -1,5 +1,5 @@
 use kenobi_core::cred::usage::OutboundUsable;
-pub use kenobi_core::typestate::{Encryption, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, Signing};
+use kenobi_core::typestate::{Encryption, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, Signing};
 use std::{
     ffi::c_void,
     marker::PhantomData,
