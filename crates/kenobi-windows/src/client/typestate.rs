@@ -1,3 +1,4 @@
+use kenobi_core::typestate::{MaybeEncryption, MaybeSigning, NoEncryption, NoSigning};
 use windows::Win32::Security::Authentication::Identity::{
     ISC_REQ_CONFIDENTIALITY, ISC_REQ_FLAGS, ISC_REQ_INTEGRITY, ISC_REQ_NO_INTEGRITY, ISC_RET_CONFIDENTIALITY,
     ISC_RET_INTEGRITY,
@@ -13,9 +14,6 @@ pub(crate) mod signing {
     }
 }
 pub enum ExplicityDenied {}
-pub enum CannotSign {}
-pub enum MaybeSign {}
-pub enum CanSign {}
 
 impl<T: signing::Sealed> SigningPolicy for T {}
 pub trait SigningPolicy: signing::Sealed {}
@@ -26,12 +24,12 @@ impl signing::Sealed for ExplicityDenied {
         unreachable!()
     }
 }
-impl signing::Sealed for CannotSign {
+impl signing::Sealed for NoSigning {
     fn requirements_met_manual(_attr: u32) -> bool {
         unreachable!()
     }
 }
-impl signing::Sealed for MaybeSign {
+impl signing::Sealed for MaybeSigning {
     const ADDED_REQ_FLAGS: ISC_REQ_FLAGS = ISC_REQ_INTEGRITY;
     fn requirements_met_manual(attr: u32) -> bool {
         attr & ISC_RET_INTEGRITY == ISC_RET_INTEGRITY
@@ -46,18 +44,15 @@ pub(crate) mod encryption {
         fn requirements_met_manual(_attr: u32) -> bool;
     }
 }
-pub enum CannotEncrypt {}
-pub enum MaybeEncrypt {}
-pub enum CanEncrypt {}
 
 impl<T: encryption::Sealed> EncryptionPolicy for T {}
 pub trait EncryptionPolicy: encryption::Sealed {}
-impl encryption::Sealed for CannotEncrypt {
+impl encryption::Sealed for NoEncryption {
     fn requirements_met_manual(_attr: u32) -> bool {
         unreachable!()
     }
 }
-impl encryption::Sealed for MaybeEncrypt {
+impl encryption::Sealed for MaybeEncryption {
     const ADDED_REQ_FLAGS: ISC_REQ_FLAGS = ISC_REQ_CONFIDENTIALITY;
     fn requirements_met_manual(attr: u32) -> bool {
         attr & ISC_RET_CONFIDENTIALITY == ISC_RET_CONFIDENTIALITY

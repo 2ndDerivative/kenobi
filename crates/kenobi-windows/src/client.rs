@@ -1,4 +1,5 @@
 use kenobi_core::cred::usage::OutboundUsable;
+pub use kenobi_core::typestate::{Encryption, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, Signing};
 use std::{
     ffi::c_void,
     marker::PhantomData,
@@ -32,12 +33,9 @@ use crate::{
 
 pub use builder::ClientBuilder;
 pub use error::InitializeContextError;
-pub use typestate::{
-    CanEncrypt, CanSign, CannotEncrypt, CannotSign, Delegatable, DelegationPolicy, EncryptionPolicy, MaybeEncrypt,
-    MaybeSign, NoDelegation, SigningPolicy,
-};
+pub use typestate::{Delegatable, DelegationPolicy, EncryptionPolicy, NoDelegation, SigningPolicy};
 
-pub struct ClientContext<Usage, S = CannotSign, E = CannotEncrypt, D = NoDelegation> {
+pub struct ClientContext<Usage, S = NoSigning, E = NoEncryption, D = NoDelegation> {
     attributes: u32,
     cred: Credentials<Usage>,
     context: ContextHandle,
@@ -66,7 +64,7 @@ impl<Usage, S, E, D> ClientContext<Usage, S, E, D> {
         unsafe { Ok(SessionKey::new(key)) }
     }
 }
-impl<Usage, E, D> ClientContext<Usage, CanSign, E, D> {
+impl<Usage, E, D> ClientContext<Usage, Signing, E, D> {
     pub fn sign_message(&self, message: &[u8]) -> Signature {
         self.context.wrap_sign(message).unwrap()
     }
@@ -74,23 +72,23 @@ impl<Usage, E, D> ClientContext<Usage, CanSign, E, D> {
         self.context.unwrap(message)
     }
 }
-impl<Usage, D> ClientContext<Usage, CanSign, CanEncrypt, D> {
+impl<Usage, D> ClientContext<Usage, Signing, Encryption, D> {
     pub fn encrypt(&self, message: &[u8]) -> Encrypted {
         self.context.wrap_encrypt(message).unwrap()
     }
 }
-impl<Usage: OutboundUsable> ClientContext<Usage> {
+impl<Usage: OutboundUsable> ClientContext<Usage, NoSigning, NoEncryption> {
     pub fn new_from_cred(
         cred: Credentials<Usage>,
         target_principal: Option<&str>,
-    ) -> Result<StepOut<Usage>, InitializeContextError> {
+    ) -> Result<StepOut<Usage, NoSigning, NoEncryption, NoDelegation>, InitializeContextError> {
         ClientBuilder::new_from_credentials(cred, target_principal).initialize()
     }
 }
-type CheckSignResult<Usage, E, D> = Result<ClientContext<Usage, CanSign, E, D>, ClientContext<Usage, CannotSign, E, D>>;
-impl<Usage, E, D> ClientContext<Usage, MaybeSign, E, D> {
+type CheckSignResult<Usage, E, D> = Result<ClientContext<Usage, Signing, E, D>, ClientContext<Usage, NoSigning, E, D>>;
+impl<Usage, E, D> ClientContext<Usage, MaybeSigning, E, D> {
     pub fn check_signing(self) -> CheckSignResult<Usage, E, D> {
-        if <MaybeSign as typestate::signing::Sealed>::requirements_met_manual(self.attributes) {
+        if <MaybeSigning as typestate::signing::Sealed>::requirements_met_manual(self.attributes) {
             Ok(self.convert_policy())
         } else {
             Err(self.convert_policy())
@@ -98,10 +96,10 @@ impl<Usage, E, D> ClientContext<Usage, MaybeSign, E, D> {
     }
 }
 type CheckEncryptionResult<Usage, S, D> =
-    Result<ClientContext<Usage, S, CanEncrypt, D>, ClientContext<Usage, S, CannotEncrypt, D>>;
-impl<Usage, S, D> ClientContext<Usage, S, MaybeEncrypt, D> {
+    Result<ClientContext<Usage, S, Encryption, D>, ClientContext<Usage, S, NoEncryption, D>>;
+impl<Usage, S, D> ClientContext<Usage, S, MaybeEncryption, D> {
     pub fn check_encryption(self) -> CheckEncryptionResult<Usage, S, D> {
-        if <MaybeEncrypt as typestate::encryption::Sealed>::requirements_met_manual(self.attributes) {
+        if <MaybeEncryption as typestate::encryption::Sealed>::requirements_met_manual(self.attributes) {
             Ok(self.convert_policy())
         } else {
             Err(self.convert_policy())
@@ -127,7 +125,7 @@ impl<Usage, S1, E1, D1> ClientContext<Usage, S1, E1, D1> {
     }
 }
 
-pub struct PendingClientContext<Usage, S = CannotSign, E = CannotEncrypt, D = NoDelegation> {
+pub struct PendingClientContext<Usage, S = NoSigning, E = NoEncryption, D = NoDelegation> {
     target_spn: Option<Box<[u16]>>,
     cred: Credentials<Usage>,
     context: ContextHandle,
@@ -281,7 +279,7 @@ fn step<Usage: OutboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: Delegat
     }
 }
 
-pub enum StepOut<Usage, S = CannotSign, E = CannotEncrypt, D = NoDelegation> {
+pub enum StepOut<Usage, S = NoSigning, E = NoEncryption, D = NoDelegation> {
     Pending(PendingClientContext<Usage, S, E, D>),
     Completed(ClientContext<Usage, S, E, D>),
 }

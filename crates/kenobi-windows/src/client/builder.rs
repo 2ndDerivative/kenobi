@@ -5,22 +5,20 @@ use crate::{
     client::{
         StepOut,
         error::InitializeContextError,
-        typestate::{
-            CannotEncrypt, CannotSign, Delegatable, DelegationPolicy, EncryptionPolicy, ExplicityDenied, MaybeEncrypt,
-            MaybeSign, NoDelegation, SigningPolicy,
-        },
+        typestate::{Delegatable, DelegationPolicy, EncryptionPolicy, ExplicityDenied, NoDelegation, SigningPolicy},
     },
     cred::Credentials,
 };
+pub use kenobi_core::typestate::{MaybeEncryption, MaybeSigning, NoEncryption, NoSigning};
 use kenobi_core::{channel_bindings::Channel, cred::usage::OutboundUsable};
 
-pub struct ClientBuilder<Usage, S = CannotSign, E = CannotEncrypt, D = NoDelegation> {
+pub struct ClientBuilder<Usage, S = NoSigning, E = NoEncryption, D = NoDelegation> {
     cred: Credentials<Usage>,
     target_principal: Option<Box<[u16]>>,
     channel_bindings: Option<Box<[u8]>>,
     _enc: PhantomData<(S, E, D)>,
 }
-impl<Usage> ClientBuilder<Usage, CannotSign, CannotEncrypt, NoDelegation> {
+impl<Usage> ClientBuilder<Usage, NoSigning, NoEncryption, NoDelegation> {
     pub fn new_from_credentials(cred: Credentials<Usage>, target_principal: Option<&str>) -> Self {
         let target_principal = target_principal.map(crate::to_wide);
         Self {
@@ -31,13 +29,13 @@ impl<Usage> ClientBuilder<Usage, CannotSign, CannotEncrypt, NoDelegation> {
         }
     }
 }
-impl<Usage, S, D> ClientBuilder<Usage, S, CannotEncrypt, D> {
-    pub fn request_encryption(self) -> ClientBuilder<Usage, S, MaybeEncrypt, D> {
+impl<Usage, S, D> ClientBuilder<Usage, S, NoEncryption, D> {
+    pub fn request_encryption(self) -> ClientBuilder<Usage, S, MaybeEncryption, D> {
         self.convert_policy()
     }
 }
-impl<Usage, E, D> ClientBuilder<Usage, CannotSign, E, D> {
-    pub fn request_signing(self) -> ClientBuilder<Usage, MaybeSign, E, D> {
+impl<Usage, E, D> ClientBuilder<Usage, NoSigning, E, D> {
+    pub fn request_signing(self) -> ClientBuilder<Usage, MaybeSigning, E, D> {
         self.convert_policy()
     }
     pub fn explicitly_deny_signing(self) -> ClientBuilder<Usage, ExplicityDenied, E, D> {

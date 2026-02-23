@@ -26,19 +26,19 @@ pub(crate) mod sealed {
         #[cfg(unix)]
         type Unix = kenobi_unix::client::CannotSign;
         #[cfg(windows)]
-        type Win = kenobi_windows::client::CannotSign;
+        type Win = kenobi_core::typestate::NoSigning;
     }
     impl SigningSealed for super::MaybeSigning {
         #[cfg(unix)]
         type Unix = kenobi_unix::client::MaybeSign;
         #[cfg(windows)]
-        type Win = kenobi_windows::client::MaybeSign;
+        type Win = kenobi_core::typestate::MaybeSigning;
     }
     impl SigningSealed for super::Signing {
         #[cfg(unix)]
         type Unix = kenobi_unix::client::CanSign;
         #[cfg(windows)]
-        type Win = kenobi_windows::client::CanSign;
+        type Win = kenobi_core::typestate::Signing;
     }
 
     pub trait EncryptionSealed {
@@ -51,19 +51,19 @@ pub(crate) mod sealed {
         #[cfg(unix)]
         type Unix = kenobi_unix::client::CannotEncrypt;
         #[cfg(windows)]
-        type Win = kenobi_windows::client::CannotEncrypt;
+        type Win = kenobi_core::typestate::NoEncryption;
     }
     impl EncryptionSealed for super::MaybeEncryption {
         #[cfg(unix)]
         type Unix = kenobi_unix::client::MaybeEncrypt;
         #[cfg(windows)]
-        type Win = kenobi_windows::client::MaybeEncrypt;
+        type Win = kenobi_core::typestate::MaybeEncryption;
     }
     impl EncryptionSealed for super::Encryption {
         #[cfg(unix)]
         type Unix = kenobi_unix::client::CanEncrypt;
         #[cfg(windows)]
-        type Win = kenobi_windows::client::CanEncrypt;
+        type Win = kenobi_core::typestate::Encryption;
     }
 }
 
