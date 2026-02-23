@@ -226,7 +226,7 @@ fn step<Usage: OutboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: Delegat
             Some(cred.as_ref().raw_handle()),
             context.as_deref().map(std::ptr::from_ref),
             target_spn.as_ref().map(|b| b.as_ptr()),
-            ISC_REQ_MUTUAL_AUTH | E::ADDED_REQ_FLAGS | S::ADDED_REQ_FLAGS | D::ADDED_REQ_FLAGS,
+            ISC_REQ_MUTUAL_AUTH | S::ADDED_REQ_FLAGS | E::ADDED_REQ_FLAGS | D::ADDED_REQ_FLAGS,
             0,
             SECURITY_NATIVE_DREP,
             in_token_buf_desc.as_ref().map(std::ptr::from_ref),
