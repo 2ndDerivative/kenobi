@@ -2,10 +2,13 @@ use std::marker::PhantomData;
 
 use kenobi_core::cred::usage::{Outbound, OutboundUsable};
 #[cfg(unix)]
-use kenobi_unix::cred::{Credentials as UnixCred, CredentialsUsage};
+use kenobi_unix::cred::Credentials as UnixCred;
+#[cfg(unix)]
+pub use kenobi_unix::cred::CredentialsUsage;
 #[cfg(windows)]
-use kenobi_windows::cred::{Credentials as WinCred, CredentialsUsage};
-
+use kenobi_windows::cred::Credentials as WinCred;
+#[cfg(windows)]
+pub use kenobi_windows::cred::CredentialsUsage;
 pub mod client;
 mod sign_encrypt;
 
