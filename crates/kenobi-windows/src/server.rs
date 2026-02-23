@@ -28,9 +28,8 @@ mod typestate;
 
 pub use builder::ServerBuilder;
 pub use error::AcceptContextError;
-pub use typestate::{
-    CanDelegate, CanEncrypt, CanSign, MaybeEncrypt, MaybeSign, NoDelegation, NoEncryption, NoSigning, OfferDelegate,
-};
+use kenobi_core::typestate::{Encryption, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, Signing};
+pub use typestate::{CanDelegate, NoDelegation, OfferDelegate};
 
 pub struct ServerContext<Usage, S, E, D> {
     cred: Credentials<Usage>,
@@ -58,7 +57,7 @@ impl<Usage, S, E, D> ServerContext<Usage, S, E, D> {
         (!self.token_buffer.is_empty()).then_some(&self.token_buffer)
     }
 }
-impl<Usage, E, D> ServerContext<Usage, CanSign, E, D> {
+impl<Usage, E, D> ServerContext<Usage, Signing, E, D> {
     pub fn sign_message(&self, message: &[u8]) -> Signature {
         self.context.wrap_sign(message).unwrap()
     }
@@ -78,22 +77,22 @@ impl<Usage, S, E> ServerContext<Usage, S, E, OfferDelegate> {
         }
     }
 }
-impl<Usage, E, D> ServerContext<Usage, MaybeSign, E, D> {
+impl<Usage, E, D> ServerContext<Usage, MaybeSigning, E, D> {
     #[allow(clippy::type_complexity)]
-    pub fn check_signing(self) -> Result<ServerContext<Usage, CanSign, E, D>, ServerContext<Usage, NoSigning, E, D>> {
-        if self.attributes & <MaybeSign as typestate::sign::Sealed>::REQUEST_FLAGS.0 != 0 {
+    pub fn check_signing(self) -> Result<ServerContext<Usage, Signing, E, D>, ServerContext<Usage, NoSigning, E, D>> {
+        if self.attributes & <MaybeSigning as typestate::sign::Sealed>::REQUEST_FLAGS.0 != 0 {
             Ok(self.convert_policy())
         } else {
             Err(self.convert_policy())
         }
     }
 }
-impl<Usage, S, D> ServerContext<Usage, S, MaybeEncrypt, D> {
+impl<Usage, S, D> ServerContext<Usage, S, MaybeEncryption, D> {
     #[allow(clippy::type_complexity)]
     pub fn check_encryption(
         self,
-    ) -> Result<ServerContext<Usage, S, CanEncrypt, D>, ServerContext<Usage, S, NoEncryption, D>> {
-        if self.attributes & <MaybeEncrypt as typestate::encrypt::Sealed>::REQUEST_FLAGS.0 != 0 {
+    ) -> Result<ServerContext<Usage, S, Encryption, D>, ServerContext<Usage, S, NoEncryption, D>> {
+        if self.attributes & <MaybeEncryption as typestate::encrypt::Sealed>::REQUEST_FLAGS.0 != 0 {
             Ok(self.convert_policy())
         } else {
             Err(self.convert_policy())

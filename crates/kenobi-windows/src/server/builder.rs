@@ -4,15 +4,16 @@ use crate::{
     buffer::NonResizableVec,
     cred::Credentials,
     server::{
-        MaybeEncrypt, StepOut,
+        StepOut,
         error::AcceptContextError,
-        typestate::{
-            DelegationPolicy, EncryptionPolicy, MaybeSign, NoDelegation, NoEncryption, NoSigning, OfferDelegate,
-            SigningPolicy,
-        },
+        typestate::{DelegationPolicy, EncryptionPolicy, NoDelegation, OfferDelegate, SigningPolicy},
     },
 };
-use kenobi_core::{channel_bindings::Channel, cred::usage::InboundUsable};
+use kenobi_core::{
+    channel_bindings::Channel,
+    cred::usage::InboundUsable,
+    typestate::{MaybeEncryption, MaybeSigning, NoEncryption, NoSigning},
+};
 
 pub struct ServerBuilder<Usage, S = NoSigning, E = NoEncryption, D = NoDelegation> {
     cred: Credentials<Usage>,
@@ -34,12 +35,12 @@ impl<Usage, S, E> ServerBuilder<Usage, S, E, NoDelegation> {
     }
 }
 impl<Usage, E, D> ServerBuilder<Usage, NoSigning, E, D> {
-    pub fn offer_signing(self) -> ServerBuilder<Usage, MaybeSign, E, D> {
+    pub fn offer_signing(self) -> ServerBuilder<Usage, MaybeSigning, E, D> {
         self.convert_policy()
     }
 }
 impl<Usage, S, D> ServerBuilder<Usage, S, NoEncryption, D> {
-    pub fn offer_encryption(self) -> ServerBuilder<Usage, S, MaybeEncrypt, D> {
+    pub fn offer_encryption(self) -> ServerBuilder<Usage, S, MaybeEncryption, D> {
         self.convert_policy()
     }
 }

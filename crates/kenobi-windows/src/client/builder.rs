@@ -9,7 +9,7 @@ use crate::{
     },
     cred::Credentials,
 };
-pub use kenobi_core::typestate::{MaybeEncryption, MaybeSigning, NoEncryption, NoSigning};
+use kenobi_core::typestate::{MaybeEncryption, MaybeSigning, NoEncryption, NoSigning};
 use kenobi_core::{channel_bindings::Channel, cred::usage::OutboundUsable};
 
 pub struct ClientBuilder<Usage, S = NoSigning, E = NoEncryption, D = NoDelegation> {

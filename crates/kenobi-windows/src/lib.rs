@@ -17,3 +17,7 @@ fn to_wide(s: &str) -> Box<[u16]> {
         .collect::<Vec<_>>()
         .into_boxed_slice()
 }
+
+pub mod typestate {
+    pub use kenobi_core::typestate::{Encryption, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, Signing};
+}
