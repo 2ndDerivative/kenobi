@@ -1,54 +1,68 @@
 use windows::Win32::Security::Authentication::Identity::{
-    ISC_REQ_CONFIDENTIALITY, ISC_REQ_FLAGS, ISC_REQ_INTEGRITY, ISC_RET_CONFIDENTIALITY, ISC_RET_INTEGRITY,
+    ISC_REQ_CONFIDENTIALITY, ISC_REQ_FLAGS, ISC_REQ_INTEGRITY, ISC_REQ_NO_INTEGRITY, ISC_RET_CONFIDENTIALITY,
+    ISC_RET_INTEGRITY,
 };
 
-macro_rules! sealed_policy_trait {
-    ($trayt:ident, $module:ident, $not_enforced:ident, $mandatory:ident, $optional:ident, $flag:expr, $return_flag:expr) => {
-        pub(crate) mod $module {
-            use windows::Win32::Security::Authentication::Identity::ISC_REQ_FLAGS;
+pub(crate) mod signing {
+    use windows::Win32::Security::Authentication::Identity::ISC_REQ_FLAGS;
 
-            pub trait Sealed: Sized {
-                const ADDED_REQ_FLAGS: ISC_REQ_FLAGS = ISC_REQ_FLAGS(0);
-                fn requirements_met_manual(_attr: u32) -> bool;
-            }
-        }
-        pub enum $not_enforced {}
-        pub enum $optional {}
-        pub enum $mandatory {}
-
-        impl<T: $module::Sealed> $trayt for T {}
-        pub trait $trayt: $module::Sealed {}
-        impl $module::Sealed for $not_enforced {
-            fn requirements_met_manual(_attr: u32) -> bool {
-                unreachable!()
-            }
-        }
-        impl $module::Sealed for $optional {
-            const ADDED_REQ_FLAGS: ISC_REQ_FLAGS = $flag;
-            fn requirements_met_manual(attr: u32) -> bool {
-                attr & $return_flag == $return_flag
-            }
-        }
-    };
+    pub trait Sealed: Sized {
+        const REMOVE_MUTUAL_AUTH_FLAG: bool = false;
+        const ADDED_REQ_FLAGS: ISC_REQ_FLAGS = ISC_REQ_FLAGS(0);
+        fn requirements_met_manual(_attr: u32) -> bool;
+    }
 }
-sealed_policy_trait!(
-    EncryptionPolicy,
-    encryption,
-    CannotEncrypt,
-    CanEncrypt,
-    MaybeEncrypt,
-    ISC_REQ_FLAGS(ISC_REQ_CONFIDENTIALITY.0 | ISC_REQ_INTEGRITY.0),
-    ISC_RET_CONFIDENTIALITY
-);
-sealed_policy_trait!(
-    SigningPolicy,
-    signing,
-    CannotSign,
-    CanSign,
-    MaybeSign,
-    ISC_REQ_INTEGRITY,
-    ISC_RET_INTEGRITY
-);
+pub enum ExplicityDenied {}
+pub enum CannotSign {}
+pub enum MaybeSign {}
+pub enum CanSign {}
+
+impl<T: signing::Sealed> SigningPolicy for T {}
+pub trait SigningPolicy: signing::Sealed {}
+impl signing::Sealed for ExplicityDenied {
+    const REMOVE_MUTUAL_AUTH_FLAG: bool = true;
+    const ADDED_REQ_FLAGS: ISC_REQ_FLAGS = ISC_REQ_NO_INTEGRITY;
+    fn requirements_met_manual(_attr: u32) -> bool {
+        unreachable!()
+    }
+}
+impl signing::Sealed for CannotSign {
+    fn requirements_met_manual(_attr: u32) -> bool {
+        unreachable!()
+    }
+}
+impl signing::Sealed for MaybeSign {
+    const ADDED_REQ_FLAGS: ISC_REQ_FLAGS = ISC_REQ_INTEGRITY;
+    fn requirements_met_manual(attr: u32) -> bool {
+        attr & ISC_RET_INTEGRITY == ISC_RET_INTEGRITY
+    }
+}
+
+pub(crate) mod encryption {
+    use windows::Win32::Security::Authentication::Identity::ISC_REQ_FLAGS;
+
+    pub trait Sealed: Sized {
+        const ADDED_REQ_FLAGS: ISC_REQ_FLAGS = ISC_REQ_FLAGS(0);
+        fn requirements_met_manual(_attr: u32) -> bool;
+    }
+}
+pub enum CannotEncrypt {}
+pub enum MaybeEncrypt {}
+pub enum CanEncrypt {}
+
+impl<T: encryption::Sealed> EncryptionPolicy for T {}
+pub trait EncryptionPolicy: encryption::Sealed {}
+impl encryption::Sealed for CannotEncrypt {
+    fn requirements_met_manual(_attr: u32) -> bool {
+        unreachable!()
+    }
+}
+impl encryption::Sealed for MaybeEncrypt {
+    const ADDED_REQ_FLAGS: ISC_REQ_FLAGS = ISC_REQ_CONFIDENTIALITY;
+    fn requirements_met_manual(attr: u32) -> bool {
+        attr & ISC_RET_CONFIDENTIALITY == ISC_RET_CONFIDENTIALITY
+    }
+}
 
 pub(crate) mod delegate {
     use windows::Win32::Security::Authentication::Identity::{ISC_REQ_DELEGATE, ISC_REQ_FLAGS};

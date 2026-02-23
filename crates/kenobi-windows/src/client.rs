@@ -12,7 +12,7 @@ use windows::Win32::{
         SEC_I_CONTINUE_NEEDED,
     },
     Security::Authentication::Identity::{
-        ISC_REQ_MUTUAL_AUTH, ISC_RET_MUTUAL_AUTH, InitializeSecurityContextW, QueryContextAttributesW,
+        ISC_REQ_FLAGS, ISC_REQ_MUTUAL_AUTH, ISC_RET_MUTUAL_AUTH, InitializeSecurityContextW, QueryContextAttributesW,
         SEC_CHANNEL_BINDINGS, SECBUFFER_CHANNEL_BINDINGS, SECBUFFER_TOKEN, SECBUFFER_VERSION, SECPKG_ATTR_SESSION_KEY,
         SECURITY_NATIVE_DREP, SecBuffer, SecBufferDesc, SecPkgContext_SessionKey,
     },
@@ -221,12 +221,17 @@ fn step<Usage: OutboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: Delegat
             pBuffers: v.as_mut_ptr(),
         }),
     };
+    let mutual_auth: ISC_REQ_FLAGS = if S::REMOVE_MUTUAL_AUTH_FLAG {
+        ISC_REQ_FLAGS(0)
+    } else {
+        ISC_REQ_MUTUAL_AUTH
+    };
     let hres = unsafe {
         InitializeSecurityContextW(
             Some(cred.as_ref().raw_handle()),
             context.as_deref().map(std::ptr::from_ref),
             target_spn.as_ref().map(|b| b.as_ptr()),
-            ISC_REQ_MUTUAL_AUTH | S::ADDED_REQ_FLAGS | E::ADDED_REQ_FLAGS | D::ADDED_REQ_FLAGS,
+            mutual_auth | S::ADDED_REQ_FLAGS | E::ADDED_REQ_FLAGS | D::ADDED_REQ_FLAGS,
             0,
             SECURITY_NATIVE_DREP,
             in_token_buf_desc.as_ref().map(std::ptr::from_ref),

@@ -6,8 +6,8 @@ use crate::{
         StepOut,
         error::InitializeContextError,
         typestate::{
-            CannotEncrypt, CannotSign, Delegatable, DelegationPolicy, EncryptionPolicy, MaybeEncrypt, MaybeSign,
-            NoDelegation, SigningPolicy,
+            CannotEncrypt, CannotSign, Delegatable, DelegationPolicy, EncryptionPolicy, ExplicityDenied, MaybeEncrypt,
+            MaybeSign, NoDelegation, SigningPolicy,
         },
     },
     cred::Credentials,
@@ -38,6 +38,9 @@ impl<Usage, S, D> ClientBuilder<Usage, S, CannotEncrypt, D> {
 }
 impl<Usage, E, D> ClientBuilder<Usage, CannotSign, E, D> {
     pub fn request_signing(self) -> ClientBuilder<Usage, MaybeSign, E, D> {
+        self.convert_policy()
+    }
+    pub fn explicitly_deny_signing(self) -> ClientBuilder<Usage, ExplicityDenied, E, D> {
         self.convert_policy()
     }
 }
