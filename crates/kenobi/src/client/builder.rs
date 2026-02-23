@@ -70,9 +70,7 @@ impl<Usage, S: SigningState> ClientBuilder<Usage, S, NoEncryption> {
 }
 
 #[cfg(windows)]
-impl<Usage: OutboundUsable, S: UnfinishedSigningState + SigningState, E: UnfinishedEncryptionState + EncryptionState>
-    ClientBuilder<Usage, S, E>
-{
+impl<Usage: OutboundUsable, S: UnfinishedSigningState, E: UnfinishedEncryptionState> ClientBuilder<Usage, S, E> {
     #[must_use]
     pub fn initialize(self) -> StepOut<Usage, S, E> {
         StepOut::from_windows(self.inner.initialize().unwrap())
@@ -80,9 +78,7 @@ impl<Usage: OutboundUsable, S: UnfinishedSigningState + SigningState, E: Unfinis
 }
 
 #[cfg(unix)]
-impl<Usage: OutboundUsable, S: UnfinishedSigningState + SigningState, E: UnfinishedEncryptionState + EncryptionState>
-    ClientBuilder<Usage, S, E>
-{
+impl<Usage: OutboundUsable, S: UnfinishedSigningState, E: UnfinishedEncryptionState> ClientBuilder<Usage, S, E> {
     #[must_use]
     pub fn initialize(self) -> StepOut<Usage, S, E> {
         StepOut::from_unix(self.inner.initialize().unwrap())

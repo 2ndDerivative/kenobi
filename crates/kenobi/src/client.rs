@@ -145,9 +145,7 @@ impl<Usage, S: UnfinishedSigningState, E: UnfinishedEncryptionState> PendingClie
     }
 }
 #[cfg(windows)]
-impl<Usage: OutboundUsable, S: UnfinishedSigningState + SigningState, E: UnfinishedEncryptionState + EncryptionState>
-    PendingClientContext<Usage, S, E>
-{
+impl<Usage: OutboundUsable, S: UnfinishedSigningState, E: UnfinishedEncryptionState> PendingClientContext<Usage, S, E> {
     pub fn step(self, token: &[u8]) -> StepOut<Usage, S, E> {
         match self.inner.step(token).unwrap() {
             WinStepOut::Completed(inner) => StepOut::Finished(ClientContext { inner }),
@@ -157,9 +155,7 @@ impl<Usage: OutboundUsable, S: UnfinishedSigningState + SigningState, E: Unfinis
 }
 
 #[cfg(unix)]
-impl<Usage: OutboundUsable, S: UnfinishedSigningState + SigningState, E: UnfinishedEncryptionState + EncryptionState>
-    PendingClientContext<Usage, S, E>
-{
+impl<Usage: OutboundUsable, S: UnfinishedSigningState, E: UnfinishedEncryptionState> PendingClientContext<Usage, S, E> {
     pub fn step(self, token: &[u8]) -> StepOut<Usage, S, E> {
         match self.inner.step(token).unwrap() {
             UnixStepOut::Finished(inner) => StepOut::Finished(ClientContext { inner }),
@@ -168,13 +164,11 @@ impl<Usage: OutboundUsable, S: UnfinishedSigningState + SigningState, E: Unfinis
     }
 }
 
-pub enum StepOut<Usage, S: UnfinishedSigningState + SigningState, E: UnfinishedEncryptionState + EncryptionState> {
+pub enum StepOut<Usage, S: UnfinishedSigningState, E: UnfinishedEncryptionState> {
     Pending(PendingClientContext<Usage, S, E>),
     Finished(ClientContext<Usage, S, E>),
 }
-impl<Usage, S: UnfinishedSigningState + SigningState, E: UnfinishedEncryptionState + EncryptionState>
-    StepOut<Usage, S, E>
-{
+impl<Usage, S: UnfinishedSigningState, E: UnfinishedEncryptionState> StepOut<Usage, S, E> {
     #[cfg(windows)]
     fn from_windows(win: WinStepOut<Usage, S, E>) -> Self {
         match win {
