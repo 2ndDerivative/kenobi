@@ -17,9 +17,9 @@ use kenobi_unix::client::NoDelegation;
 /// finish setting up with `ClientBuilder::initialize`
 pub struct ClientBuilder<Usage, S: SigningState, E: EncryptionState> {
     #[cfg(windows)]
-    inner: kenobi_windows::client::ClientBuilder<Usage, S::Inner, E::Inner, NoDelegation>,
+    inner: kenobi_windows::client::ClientBuilder<Usage, S, E, NoDelegation>,
     #[cfg(unix)]
-    inner: kenobi_unix::client::ClientBuilder<Usage, S::Inner, E::Inner, NoDelegation>,
+    inner: kenobi_unix::client::ClientBuilder<Usage, S, E, NoDelegation>,
 }
 impl<Usage, S: SigningState, E: EncryptionState> ClientBuilder<Usage, S, E> {
     pub fn bind_to_channel<C: Channel>(self, channel: &C) -> Result<Self, C::Error> {
@@ -70,7 +70,9 @@ impl<Usage, S: SigningState> ClientBuilder<Usage, S, NoEncryption> {
 }
 
 #[cfg(windows)]
-impl<Usage: OutboundUsable, S: UnfinishedSigningState, E: UnfinishedEncryptionState> ClientBuilder<Usage, S, E> {
+impl<Usage: OutboundUsable, S: UnfinishedSigningState + SigningState, E: UnfinishedEncryptionState + EncryptionState>
+    ClientBuilder<Usage, S, E>
+{
     #[must_use]
     pub fn initialize(self) -> StepOut<Usage, S, E> {
         StepOut::from_windows(self.inner.initialize().unwrap())
@@ -78,7 +80,9 @@ impl<Usage: OutboundUsable, S: UnfinishedSigningState, E: UnfinishedEncryptionSt
 }
 
 #[cfg(unix)]
-impl<Usage: OutboundUsable, S: UnfinishedSigningState, E: UnfinishedEncryptionState> ClientBuilder<Usage, S, E> {
+impl<Usage: OutboundUsable, S: UnfinishedSigningState + SigningState, E: UnfinishedEncryptionState + EncryptionState>
+    ClientBuilder<Usage, S, E>
+{
     #[must_use]
     pub fn initialize(self) -> StepOut<Usage, S, E> {
         StepOut::from_unix(self.inner.initialize().unwrap())

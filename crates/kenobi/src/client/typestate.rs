@@ -2,47 +2,28 @@ use kenobi_core::typestate::{Encryption, MaybeEncryption, MaybeSigning, NoEncryp
 
 pub(crate) mod sealed {
     #[cfg(windows)]
-    pub trait UnfinishedSigningSealed: super::SigningState<Inner: kenobi_windows::client::SigningPolicy> {}
+    pub trait UnfinishedSigningSealed: kenobi_windows::client::SigningPolicy {}
     #[cfg(unix)]
-    pub trait UnfinishedSigningSealed: super::SigningState<Inner: kenobi_unix::client::SignPolicy> {}
+    pub trait UnfinishedSigningSealed: kenobi_unix::client::SignPolicy {}
     impl UnfinishedSigningSealed for super::NoSigning {}
     impl UnfinishedSigningSealed for super::MaybeSigning {}
 
     #[cfg(windows)]
-    pub trait UnfinishedEncryptionSealed:
-        super::EncryptionState<Inner: kenobi_windows::client::EncryptionPolicy>
-    {
-    }
+    pub trait UnfinishedEncryptionSealed: kenobi_windows::client::EncryptionPolicy {}
     #[cfg(unix)]
-    pub trait UnfinishedEncryptionSealed: super::EncryptionState<Inner: kenobi_unix::client::EncryptionPolicy> {}
+    pub trait UnfinishedEncryptionSealed: kenobi_unix::client::EncryptionPolicy {}
     impl UnfinishedEncryptionSealed for super::NoEncryption {}
     impl UnfinishedEncryptionSealed for super::MaybeEncryption {}
 
-    pub trait SigningSealed {
-        type Inner;
-    }
-    impl SigningSealed for super::NoSigning {
-        type Inner = kenobi_core::typestate::NoSigning;
-    }
-    impl SigningSealed for super::MaybeSigning {
-        type Inner = kenobi_core::typestate::MaybeSigning;
-    }
-    impl SigningSealed for super::Signing {
-        type Inner = kenobi_core::typestate::Signing;
-    }
+    pub trait SigningSealed {}
+    impl SigningSealed for super::NoSigning {}
+    impl SigningSealed for super::MaybeSigning {}
+    impl SigningSealed for super::Signing {}
 
-    pub trait EncryptionSealed {
-        type Inner;
-    }
-    impl EncryptionSealed for super::NoEncryption {
-        type Inner = kenobi_core::typestate::NoEncryption;
-    }
-    impl EncryptionSealed for super::MaybeEncryption {
-        type Inner = kenobi_core::typestate::MaybeEncryption;
-    }
-    impl EncryptionSealed for super::Encryption {
-        type Inner = kenobi_core::typestate::Encryption;
-    }
+    pub trait EncryptionSealed {}
+    impl EncryptionSealed for super::NoEncryption {}
+    impl EncryptionSealed for super::MaybeEncryption {}
+    impl EncryptionSealed for super::Encryption {}
 }
 
 /// Trait for signing markers which can occur after negotiation has finished
