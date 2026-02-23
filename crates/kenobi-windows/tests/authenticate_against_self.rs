@@ -73,9 +73,9 @@ fn main() {
     };
 
     eprintln!("[CLIENT] Encrypting message");
-    let signed = finished_ctx.encrypt(MESSAGE);
+    let encrypted = finished_ctx.encrypt(MESSAGE).unwrap();
     send.send(Message::Data(MESSAGE.to_vec())).unwrap();
-    send.send(Message::Signature(signed.to_vec())).unwrap();
+    send.send(Message::Signature(encrypted.to_vec())).unwrap();
 
     join_handle.join().unwrap();
 }
@@ -129,7 +129,7 @@ fn server(recv: Receiver<Message>, return_sender: Sender<Vec<u8>>, _principal: &
         panic!("Invalid data sent after successful auth")
     };
     dbg!(String::from_utf8_lossy(&_sig));
-    let plaintext = my_server_ctx.verify_message(&_sig).unwrap();
+    let plaintext = my_server_ctx.unwrap(&_sig).unwrap();
     dbg!(String::from_utf8_lossy(&plaintext));
     assert_eq!(data, MESSAGE);
 }

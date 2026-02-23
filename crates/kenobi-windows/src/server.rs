@@ -18,7 +18,7 @@ use crate::{
     context::ContextHandle,
     cred::Credentials,
     server::typestate::{DelegationPolicy, EncryptionPolicy, SigningPolicy},
-    sign_encrypt::{Altered, Plaintext, Signature},
+    sign_encrypt::{Altered, Plaintext, Signature, WrapError},
 };
 
 mod builder;
@@ -58,10 +58,10 @@ impl<Usage, S, E, D> ServerContext<Usage, S, E, D> {
     }
 }
 impl<Usage, E, D> ServerContext<Usage, Signing, E, D> {
-    pub fn sign_message(&self, message: &[u8]) -> Signature {
-        self.context.wrap_sign(message).unwrap()
+    pub fn sign(&self, message: &[u8]) -> Result<Signature, WrapError> {
+        self.context.wrap_sign(message).map_err(WrapError)
     }
-    pub fn verify_message(&self, message: &[u8]) -> Result<Plaintext, Altered> {
+    pub fn unwrap(&self, message: &[u8]) -> Result<Plaintext, Altered> {
         self.context.unwrap(message)
     }
 }

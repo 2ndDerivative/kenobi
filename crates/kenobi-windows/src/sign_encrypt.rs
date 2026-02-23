@@ -1,4 +1,4 @@
-use std::{ffi::c_void, ops::Deref};
+use std::{ffi::c_void, fmt::Display, ops::Deref};
 
 use windows::Win32::{
     Foundation::{SEC_E_INVALID_TOKEN, SEC_E_MESSAGE_ALTERED, SEC_E_OK},
@@ -14,7 +14,7 @@ use crate::context::ContextHandle;
 
 impl ContextHandle {
     fn wrap_raw(&self, encrypt: bool, message: &[u8]) -> windows_result::Result<Vec<u8>> {
-        let sizes = get_context_sizes(self).unwrap();
+        let sizes = get_context_sizes(self).expect("Failed to get context info");
 
         let mut header = vec![0u8; sizes.cbSecurityTrailer as usize];
         let mut signature = message.to_vec();
@@ -118,6 +118,19 @@ fn get_context_sizes(ctx: &ContextHandle) -> windows_result::Result<SecPkgContex
         )?
     };
     Ok(sizes)
+}
+
+#[derive(Debug)]
+pub struct WrapError(pub(crate) windows_result::Error);
+impl std::error::Error for WrapError {
+    fn cause(&self) -> Option<&dyn std::error::Error> {
+        Some(&self.0)
+    }
+}
+impl Display for WrapError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
 }
 
 pub struct Plaintext {

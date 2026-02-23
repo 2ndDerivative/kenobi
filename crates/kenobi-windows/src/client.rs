@@ -23,6 +23,7 @@ mod builder;
 mod error;
 mod typestate;
 
+use crate::sign_encrypt::WrapError;
 use crate::{
     buffer::NonResizableVec,
     context::{ContextHandle, SessionKey},
@@ -64,16 +65,16 @@ impl<Usage, S, E, D> ClientContext<Usage, S, E, D> {
     }
 }
 impl<Usage, E, D> ClientContext<Usage, Signing, E, D> {
-    pub fn sign_message(&self, message: &[u8]) -> Signature {
-        self.context.wrap_sign(message).unwrap()
+    pub fn sign(&self, message: &[u8]) -> Result<Signature, WrapError> {
+        self.context.wrap_sign(message).map_err(WrapError)
     }
     pub fn unwrap(&self, message: &[u8]) -> Result<Plaintext, Altered> {
         self.context.unwrap(message)
     }
 }
 impl<Usage, D> ClientContext<Usage, Signing, Encryption, D> {
-    pub fn encrypt(&self, message: &[u8]) -> Encrypted {
-        self.context.wrap_encrypt(message).unwrap()
+    pub fn encrypt(&self, message: &[u8]) -> Result<Encrypted, WrapError> {
+        self.context.wrap_encrypt(message).map_err(WrapError)
     }
 }
 impl<Usage: OutboundUsable> ClientContext<Usage, NoSigning, NoEncryption> {
