@@ -1,4 +1,4 @@
-use kenobi_core::typestate::{MaybeEncryption, MaybeSigning, NoEncryption, NoSigning};
+use kenobi_core::typestate::{DeniedSigning, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning};
 use windows::Win32::Security::Authentication::Identity::{
     ISC_REQ_CONFIDENTIALITY, ISC_REQ_FLAGS, ISC_REQ_INTEGRITY, ISC_REQ_NO_INTEGRITY, ISC_RET_CONFIDENTIALITY,
     ISC_RET_INTEGRITY,
@@ -13,11 +13,10 @@ pub(crate) mod signing {
         fn requirements_met_manual(_attr: u32) -> bool;
     }
 }
-pub enum ExplicityDenied {}
 
 impl<T: signing::Sealed> SigningPolicy for T {}
 pub trait SigningPolicy: signing::Sealed {}
-impl signing::Sealed for ExplicityDenied {
+impl signing::Sealed for DeniedSigning {
     const REMOVE_MUTUAL_AUTH_FLAG: bool = true;
     const ADDED_REQ_FLAGS: ISC_REQ_FLAGS = ISC_REQ_NO_INTEGRITY;
     fn requirements_met_manual(_attr: u32) -> bool {
