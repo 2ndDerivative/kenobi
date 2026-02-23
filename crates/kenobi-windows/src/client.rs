@@ -12,9 +12,9 @@ use windows::Win32::{
         SEC_I_CONTINUE_NEEDED,
     },
     Security::Authentication::Identity::{
-        ISC_REQ_MUTUAL_AUTH, ISC_RET_MUTUAL_AUTH, InitializeSecurityContextW, QueryContextAttributesW, SECBUFFER_TOKEN,
-        SECBUFFER_VERSION, SECPKG_ATTR_SESSION_KEY, SECURITY_NATIVE_DREP, SecBuffer, SecBufferDesc,
-        SecPkgContext_SessionKey,
+        ISC_REQ_MUTUAL_AUTH, ISC_RET_MUTUAL_AUTH, InitializeSecurityContextW, QueryContextAttributesW,
+        SEC_CHANNEL_BINDINGS, SECBUFFER_CHANNEL_BINDINGS, SECBUFFER_TOKEN, SECBUFFER_VERSION, SECPKG_ATTR_SESSION_KEY,
+        SECURITY_NATIVE_DREP, SecBuffer, SecBufferDesc, SecPkgContext_SessionKey,
     },
 };
 
@@ -145,6 +145,7 @@ impl<Usage: OutboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: Delegation
             Some(self.context),
             self.attributes,
             self.token_buffer,
+            None,
             Some(token),
         )
     }
@@ -165,6 +166,7 @@ fn step<Usage: OutboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: Delegat
     mut context: Option<ContextHandle>,
     mut attributes: u32,
     mut token_buffer: NonResizableVec,
+    channel_bindings: Option<&[u8]>,
     in_token: Option<&[u8]>,
 ) -> Result<StepOut<Usage, S, E, D>, InitializeContextError> {
     token_buffer.resize_max();
@@ -175,7 +177,7 @@ fn step<Usage: OutboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: Delegat
         cBuffers: 1,
         pBuffers: &mut out_token_buffer,
     };
-    let mut in_token_buf = in_token
+    let in_token_buf = in_token
         .map(|token| {
             let cb_buffer = token
                 .len()
@@ -188,11 +190,37 @@ fn step<Usage: OutboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: Delegat
             })
         })
         .transpose()?;
-    let in_token_buf_desc = in_token_buf.as_mut().map(|s| SecBufferDesc {
-        ulVersion: SECBUFFER_VERSION,
-        cBuffers: 1,
-        pBuffers: s,
+    let mut buffers = vec![];
+    buffers.extend(in_token_buf);
+
+    // Add channel binding data
+    let mut channel_binding_buffer = channel_bindings.map(|cb| {
+        let scb = SEC_CHANNEL_BINDINGS {
+            dwApplicationDataOffset: 32,
+            cbApplicationDataLength: cb.len() as u32,
+            ..Default::default()
+        };
+        let mut buffer = vec![0u8; 32 + cb.len()];
+        unsafe {
+            std::ptr::write(buffer.as_mut_ptr() as *mut SEC_CHANNEL_BINDINGS, scb);
+        }
+        buffer[32..].copy_from_slice(cb);
+        buffer
     });
+    buffers.extend(channel_binding_buffer.as_mut().map(|cb| SecBuffer {
+        cbBuffer: cb.len() as u32,
+        BufferType: SECBUFFER_CHANNEL_BINDINGS,
+        pvBuffer: cb.as_mut_ptr() as *mut c_void,
+    }));
+
+    let in_token_buf_desc = match buffers.as_mut_slice() {
+        [] => None,
+        v => Some(SecBufferDesc {
+            ulVersion: SECBUFFER_VERSION,
+            cBuffers: v.len() as u32,
+            pBuffers: v.as_mut_ptr(),
+        }),
+    };
     let hres = unsafe {
         InitializeSecurityContextW(
             Some(cred.as_ref().raw_handle()),

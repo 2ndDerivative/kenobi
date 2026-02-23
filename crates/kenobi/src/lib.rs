@@ -15,6 +15,9 @@ mod sign_encrypt;
 pub mod cred {
     pub use kenobi_core::cred::usage::{Both, Inbound, InboundUsable, Outbound, OutboundUsable};
 }
+pub mod channel_bindings {
+    pub use kenobi_core::channel_bindings::Channel;
+}
 
 #[derive(Debug)]
 pub struct CredentialsError {

@@ -14,3 +14,6 @@ windows-result = "0.4.1"
 [dependencies.windows]
 version = "0.62.2"
 features = ["Win32_Security_Authentication_Identity", "Win32_Security_Credentials"]
+
+[features]
+native-tls = ["kenobi-core/native-tls"]

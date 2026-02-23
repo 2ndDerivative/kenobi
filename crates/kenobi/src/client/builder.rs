@@ -1,4 +1,4 @@
-use kenobi_core::cred::usage::OutboundUsable;
+use kenobi_core::{channel_bindings::Channel, cred::usage::OutboundUsable};
 #[cfg(windows)]
 use kenobi_windows::client::NoDelegation;
 
@@ -20,6 +20,12 @@ pub struct ClientBuilder<Usage, S: SigningState, E: EncryptionState> {
     inner: kenobi_windows::client::ClientBuilder<Usage, S::Win, E::Win, NoDelegation>,
     #[cfg(unix)]
     inner: kenobi_unix::client::ClientBuilder<Usage, S::Unix, E::Unix, NoDelegation>,
+}
+impl<Usage, S: SigningState, E: EncryptionState> ClientBuilder<Usage, S, E> {
+    pub fn bind_to_channel<C: Channel>(self, channel: &C) -> Result<Self, C::Error> {
+        let inner = self.inner.bind_to_channel(channel)?;
+        Ok(Self { inner })
+    }
 }
 
 #[cfg(windows)]

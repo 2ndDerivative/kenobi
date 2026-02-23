@@ -16,3 +16,6 @@ kenobi-windows = { version = "0.2.0", path = "../kenobi-windows" }
 
 [target.'cfg(unix)'.dependencies]
 kenobi-unix = { version = "0.1.0", path = "../kenobi-unix" }
+
+[features]
+native-tls = ["kenobi-unix/native-tls", "kenobi-windows/native-tls"]
