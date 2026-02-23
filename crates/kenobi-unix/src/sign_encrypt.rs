@@ -37,7 +37,7 @@ impl<CU, C, E, D> ClientContext<CU, C, E, D> {
             return Err(err);
         }
         if encrypt && conf_state == 0 {
-            panic!("Failed")
+            panic!("Failed to encrypt")
         }
         Ok(SecurityBuffer(output_buffer))
     }
