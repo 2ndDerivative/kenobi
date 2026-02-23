@@ -3,11 +3,11 @@ use kenobi_core::{channel_bindings::Channel, cred::usage::OutboundUsable, typest
 use kenobi_windows::client::NoDelegation;
 
 use crate::{
-    Credentials,
     client::{
         EncryptionState, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, SigningState, StepOut,
         UnfinishedEncryptionState, UnfinishedSigningState,
     },
+    cred::Credentials,
 };
 
 #[cfg(unix)]

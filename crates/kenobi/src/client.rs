@@ -15,7 +15,7 @@ use kenobi_core::typestate::{Encryption, MaybeEncryption, MaybeSigning, NoEncryp
 pub use typestate::{EncryptionState, SigningState, UnfinishedEncryptionState, UnfinishedSigningState};
 
 use crate::{
-    Credentials, CredentialsUsage,
+    cred::{Credentials, CredentialsUsage},
     sign_encrypt::{Signature, UnwrapError, WrapError},
 };
 

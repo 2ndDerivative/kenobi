@@ -6,7 +6,9 @@ pub mod cred {
 
     pub use kenobi_core::cred::usage::{Both, Inbound, InboundUsable, Outbound, OutboundUsable};
     #[cfg(unix)]
-    pub use kenobi_unix::cred::CredentialsUsage as UnixCred;
+    use kenobi_unix::cred::Credentials as UnixCred;
+    #[cfg(unix)]
+    pub use kenobi_unix::cred::CredentialsUsage;
     #[cfg(windows)]
     use kenobi_windows::cred::Credentials as WinCred;
     #[cfg(windows)]
@@ -32,18 +34,18 @@ pub mod cred {
     /// A GSSAPI credentials handle
     pub struct Credentials<Usage> {
         #[cfg(windows)]
-        inner: WinCred<Usage>,
+        pub(crate) inner: WinCred<Usage>,
         #[cfg(unix)]
-        inner: UnixCred<Usage>,
+        pub(crate) inner: UnixCred<Usage>,
         _marker: PhantomData<Usage>,
     }
     impl<Usage: CredentialsUsage + OutboundUsable> Credentials<Usage> {
         #[cfg(windows)]
-        fn into_platform(self) -> WinCred<Usage> {
+        pub(crate) fn into_platform(self) -> WinCred<Usage> {
             self.inner
         }
         #[cfg(unix)]
-        fn into_platform(self) -> UnixCred<Usage> {
+        pub(crate) fn into_platform(self) -> UnixCred<Usage> {
             self.inner
         }
         /// Grab the default credentials handle for a given principal (or the default user principal)
