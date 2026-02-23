@@ -1,8 +1,10 @@
+use kenobi_core::typestate::{Encryption, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, Signing};
+
 pub(crate) mod sealed {
     #[cfg(windows)]
-    pub trait UnfinishedSigningSealed: super::SigningState<Win: kenobi_windows::client::SigningPolicy> {}
+    pub trait UnfinishedSigningSealed: super::SigningState<Inner: kenobi_windows::client::SigningPolicy> {}
     #[cfg(unix)]
-    pub trait UnfinishedSigningSealed: super::SigningState<Unix: kenobi_unix::client::SignPolicy> {}
+    pub trait UnfinishedSigningSealed: super::SigningState<Inner: kenobi_unix::client::SignPolicy> {}
     impl UnfinishedSigningSealed for super::NoSigning {}
     impl UnfinishedSigningSealed for super::MaybeSigning {}
 
@@ -12,58 +14,34 @@ pub(crate) mod sealed {
     {
     }
     #[cfg(unix)]
-    pub trait UnfinishedEncryptionSealed: super::EncryptionState<Unix: kenobi_unix::client::EncryptionPolicy> {}
+    pub trait UnfinishedEncryptionSealed: super::EncryptionState<Inner: kenobi_unix::client::EncryptionPolicy> {}
     impl UnfinishedEncryptionSealed for super::NoEncryption {}
     impl UnfinishedEncryptionSealed for super::MaybeEncryption {}
 
     pub trait SigningSealed {
-        #[cfg(windows)]
-        type Win;
-        #[cfg(unix)]
-        type Unix;
+        type Inner;
     }
     impl SigningSealed for super::NoSigning {
-        #[cfg(unix)]
-        type Unix = kenobi_unix::client::CannotSign;
-        #[cfg(windows)]
-        type Win = kenobi_core::typestate::NoSigning;
+        type Inner = kenobi_core::typestate::NoSigning;
     }
     impl SigningSealed for super::MaybeSigning {
-        #[cfg(unix)]
-        type Unix = kenobi_unix::client::MaybeSign;
-        #[cfg(windows)]
-        type Win = kenobi_core::typestate::MaybeSigning;
+        type Inner = kenobi_core::typestate::MaybeSigning;
     }
     impl SigningSealed for super::Signing {
-        #[cfg(unix)]
-        type Unix = kenobi_unix::client::CanSign;
-        #[cfg(windows)]
-        type Win = kenobi_core::typestate::Signing;
+        type Inner = kenobi_core::typestate::Signing;
     }
 
     pub trait EncryptionSealed {
-        #[cfg(windows)]
-        type Win;
-        #[cfg(unix)]
-        type Unix;
+        type Inner;
     }
     impl EncryptionSealed for super::NoEncryption {
-        #[cfg(unix)]
-        type Unix = kenobi_unix::client::CannotEncrypt;
-        #[cfg(windows)]
-        type Win = kenobi_core::typestate::NoEncryption;
+        type Inner = kenobi_core::typestate::NoEncryption;
     }
     impl EncryptionSealed for super::MaybeEncryption {
-        #[cfg(unix)]
-        type Unix = kenobi_unix::client::MaybeEncrypt;
-        #[cfg(windows)]
-        type Win = kenobi_core::typestate::MaybeEncryption;
+        type Inner = kenobi_core::typestate::MaybeEncryption;
     }
     impl EncryptionSealed for super::Encryption {
-        #[cfg(unix)]
-        type Unix = kenobi_unix::client::CanEncrypt;
-        #[cfg(windows)]
-        type Win = kenobi_core::typestate::Encryption;
+        type Inner = kenobi_core::typestate::Encryption;
     }
 }
 
@@ -73,15 +51,12 @@ pub trait SigningState: sealed::SigningSealed {}
 /// (signing cannot be guaranteed to be possible before the context has finished)
 pub trait UnfinishedSigningState: sealed::UnfinishedSigningSealed {}
 
-pub enum NoSigning {}
 impl SigningState for NoSigning {}
 impl UnfinishedSigningState for NoSigning {}
 
-pub enum MaybeSigning {}
 impl SigningState for MaybeSigning {}
 impl UnfinishedSigningState for MaybeSigning {}
 
-pub enum Signing {}
 impl SigningState for Signing {}
 
 /// Trait for encryption markers which can occur after negotiation has finished
@@ -90,13 +65,10 @@ pub trait EncryptionState: sealed::EncryptionSealed {}
 /// (encryption cannot be guaranteed to be allowed before the context has finished)
 pub trait UnfinishedEncryptionState: sealed::UnfinishedEncryptionSealed {}
 
-pub enum NoEncryption {}
 impl EncryptionState for NoEncryption {}
 impl UnfinishedEncryptionState for NoEncryption {}
 
-pub enum MaybeEncryption {}
 impl EncryptionState for MaybeEncryption {}
 impl UnfinishedEncryptionState for MaybeEncryption {}
 
-pub enum Encryption {}
 impl EncryptionState for Encryption {}

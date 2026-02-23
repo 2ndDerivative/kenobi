@@ -11,10 +11,8 @@ use kenobi_windows::client::{
 };
 
 pub use builder::ClientBuilder;
-pub use typestate::{
-    Encryption, EncryptionState, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, Signing, SigningState,
-    UnfinishedEncryptionState, UnfinishedSigningState,
-};
+pub use kenobi_core::typestate::{Encryption, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, Signing};
+pub use typestate::{EncryptionState, SigningState, UnfinishedEncryptionState, UnfinishedSigningState};
 
 use crate::{Credentials, CredentialsUsage, sign_encrypt::Signature};
 
@@ -27,15 +25,15 @@ mod typestate;
 /// The final token may be used using `ClientContext::last_token`
 pub struct ClientContext<Usage, S: SigningState, E: EncryptionState> {
     #[cfg(windows)]
-    inner: WinContext<Usage, S::Win, E::Win>,
+    inner: WinContext<Usage, S::Inner, E::Inner>,
     #[cfg(unix)]
-    inner: UnixClientContext<Usage, S::Unix, E::Unix, NoDelegation>,
+    inner: UnixClientContext<Usage, S::Inner, E::Inner, NoDelegation>,
 }
-impl<Usage: CredentialsUsage + OutboundUsable> ClientContext<Usage, typestate::NoSigning, typestate::NoEncryption> {
+impl<Usage: CredentialsUsage + OutboundUsable> ClientContext<Usage, NoSigning, NoEncryption> {
     pub fn new_from_cred(
         cred: Credentials<Usage>,
         target_principal: Option<&str>,
-    ) -> StepOut<Usage, typestate::NoSigning, typestate::NoEncryption> {
+    ) -> StepOut<Usage, NoSigning, NoEncryption> {
         #[cfg(windows)]
         return StepOut::from_windows(WinContext::new_from_cred(cred.into_platform(), target_principal).unwrap());
         #[cfg(unix)]
@@ -129,9 +127,9 @@ impl<Usage> ClientContext<Usage, Signing, Encryption> {
 
 pub struct PendingClientContext<Usage, S: UnfinishedSigningState, E: UnfinishedEncryptionState> {
     #[cfg(windows)]
-    inner: WinPendingClientContext<Usage, S::Win, E::Win>,
+    inner: WinPendingClientContext<Usage, S::Inner, E::Inner>,
     #[cfg(unix)]
-    inner: UnixPendingClientContext<Usage, S::Unix, E::Unix, NoDelegation>,
+    inner: UnixPendingClientContext<Usage, S::Inner, E::Inner, NoDelegation>,
 }
 
 #[cfg(windows)]
@@ -172,14 +170,14 @@ pub enum StepOut<Usage, S: UnfinishedSigningState, E: UnfinishedEncryptionState>
 }
 impl<Usage, S: UnfinishedSigningState, E: UnfinishedEncryptionState> StepOut<Usage, S, E> {
     #[cfg(windows)]
-    fn from_windows(win: WinStepOut<Usage, S::Win, E::Win>) -> Self {
+    fn from_windows(win: WinStepOut<Usage, S::Inner, E::Inner>) -> Self {
         match win {
             WinStepOut::Completed(inner) => Self::Finished(ClientContext { inner }),
             WinStepOut::Pending(inner) => Self::Pending(PendingClientContext { inner }),
         }
     }
     #[cfg(unix)]
-    fn from_unix(win: UnixStepOut<Usage, S::Unix, E::Unix, NoDelegation>) -> Self {
+    fn from_unix(win: UnixStepOut<Usage, S::Inner, E::Inner, NoDelegation>) -> Self {
         match win {
             UnixStepOut::Finished(inner) => Self::Finished(ClientContext { inner }),
             UnixStepOut::Pending(inner) => Self::Pending(PendingClientContext { inner }),

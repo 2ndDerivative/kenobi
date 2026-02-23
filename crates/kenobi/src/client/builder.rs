@@ -17,9 +17,9 @@ use kenobi_unix::client::NoDelegation;
 /// finish setting up with `ClientBuilder::initialize`
 pub struct ClientBuilder<Usage, S: SigningState, E: EncryptionState> {
     #[cfg(windows)]
-    inner: kenobi_windows::client::ClientBuilder<Usage, S::Win, E::Win, NoDelegation>,
+    inner: kenobi_windows::client::ClientBuilder<Usage, S::Inner, E::Inner, NoDelegation>,
     #[cfg(unix)]
-    inner: kenobi_unix::client::ClientBuilder<Usage, S::Unix, E::Unix, NoDelegation>,
+    inner: kenobi_unix::client::ClientBuilder<Usage, S::Inner, E::Inner, NoDelegation>,
 }
 impl<Usage, S: SigningState, E: EncryptionState> ClientBuilder<Usage, S, E> {
     pub fn bind_to_channel<C: Channel>(self, channel: &C) -> Result<Self, C::Error> {

@@ -1,15 +1,17 @@
 use std::{marker::PhantomData, time::Duration};
 
-use kenobi_core::{channel_bindings::Channel, cred::usage::OutboundUsable};
+use kenobi_core::{
+    channel_bindings::Channel,
+    cred::usage::OutboundUsable,
+    typestate::{MaybeEncryption, MaybeSigning, NoEncryption, NoSigning},
+};
 use libgssapi_sys::GSS_C_NT_USER_NAME;
 
 use crate::{
     Error,
     client::{
-        MaybeSign, StepOut, step,
-        typestate::{
-            CannotEncrypt, CannotSign, DelegationPolicy, EncryptionPolicy, MaybeEncrypt, NoDelegation, SignPolicy,
-        },
+        StepOut, step,
+        typestate::{DelegationPolicy, EncryptionPolicy, NoDelegation, SignPolicy},
     },
     cred::Credentials,
     name::NameHandle,
@@ -22,11 +24,11 @@ pub struct ClientBuilder<CU, S, E, D> {
     channel_bindings: Option<Box<[u8]>>,
     marker: PhantomData<(S, E, D)>,
 }
-impl<CU: OutboundUsable> ClientBuilder<CU, CannotSign, CannotEncrypt, NoDelegation> {
+impl<CU: OutboundUsable> ClientBuilder<CU, NoSigning, NoEncryption, NoDelegation> {
     pub fn new(
         cred: Credentials<CU>,
         target_principal: Option<&str>,
-    ) -> Result<ClientBuilder<CU, CannotSign, CannotEncrypt, NoDelegation>, Error> {
+    ) -> Result<ClientBuilder<CU, NoSigning, NoEncryption, NoDelegation>, Error> {
         let target_principal = target_principal
             .map(|t| NameHandle::import(t, unsafe { GSS_C_NT_USER_NAME }))
             .transpose()?;
@@ -39,13 +41,13 @@ impl<CU: OutboundUsable> ClientBuilder<CU, CannotSign, CannotEncrypt, NoDelegati
         })
     }
 }
-impl<CU, E, D> ClientBuilder<CU, CannotSign, E, D> {
-    pub fn request_signing(self) -> ClientBuilder<CU, MaybeSign, E, D> {
+impl<CU, E, D> ClientBuilder<CU, NoSigning, E, D> {
+    pub fn request_signing(self) -> ClientBuilder<CU, MaybeSigning, E, D> {
         self.convert_policy()
     }
 }
-impl<CU, S, D> ClientBuilder<CU, S, CannotEncrypt, D> {
-    pub fn request_encryption(self) -> ClientBuilder<CU, S, MaybeEncrypt, D> {
+impl<CU, S, D> ClientBuilder<CU, S, NoEncryption, D> {
+    pub fn request_encryption(self) -> ClientBuilder<CU, S, MaybeEncryption, D> {
         self.convert_policy()
     }
 }

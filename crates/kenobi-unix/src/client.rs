@@ -24,10 +24,8 @@ mod builder;
 mod typestate;
 
 pub use builder::ClientBuilder;
-pub use typestate::{
-    CanEncrypt, CanSign, CannotEncrypt, CannotSign, Delegatable, EncryptionPolicy, MaybeDelegatable, MaybeEncrypt,
-    MaybeSign, NoDelegation, SignPolicy,
-};
+pub use kenobi_core::typestate::{Encryption, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, Signing};
+pub use typestate::{Delegatable, EncryptionPolicy, MaybeDelegatable, NoDelegation, SignPolicy};
 
 pub struct ClientContext<CU, S, E, D> {
     attributes: u32,
@@ -37,31 +35,31 @@ pub struct ClientContext<CU, S, E, D> {
     marker: PhantomData<(S, E, D)>,
 }
 
-impl<CU: OutboundUsable> ClientContext<CU, CannotSign, CannotEncrypt, NoDelegation> {
+impl<CU: OutboundUsable> ClientContext<CU, NoSigning, NoEncryption, NoDelegation> {
     #[allow(clippy::new_ret_no_self)]
     pub fn new(
         cred: Credentials<CU>,
         target_principal: Option<&str>,
-    ) -> Result<StepOut<CU, CannotSign, CannotEncrypt, NoDelegation>, Error> {
+    ) -> Result<StepOut<CU, NoSigning, NoEncryption, NoDelegation>, Error> {
         ClientBuilder::new(cred, target_principal)?.initialize()
     }
 }
-impl<CU, E, D> ClientContext<CU, MaybeSign, E, D> {
+impl<CU, E, D> ClientContext<CU, MaybeSigning, E, D> {
     #[allow(clippy::type_complexity)]
-    pub fn check_signing(self) -> Result<ClientContext<CU, CanSign, E, D>, ClientContext<CU, CannotSign, E, D>> {
-        if self.attributes & MaybeSign::REQUESTED_FLAGS != 0 {
+    pub fn check_signing(self) -> Result<ClientContext<CU, Signing, E, D>, ClientContext<CU, NoSigning, E, D>> {
+        if self.attributes & MaybeSigning::REQUESTED_FLAGS != 0 {
             Ok(self.change_policy())
         } else {
             Err(self.change_policy())
         }
     }
 }
-impl<CU, S, D> ClientContext<CU, S, MaybeEncrypt, D> {
+impl<CU, S, D> ClientContext<CU, S, MaybeEncryption, D> {
     #[allow(clippy::type_complexity)]
     pub fn check_encryption(
         self,
-    ) -> Result<ClientContext<CU, S, CanEncrypt, D>, ClientContext<CU, S, CannotEncrypt, D>> {
-        if self.attributes & MaybeEncrypt::REQUESTED_FLAGS != 0 {
+    ) -> Result<ClientContext<CU, S, Encryption, D>, ClientContext<CU, S, NoEncryption, D>> {
+        if self.attributes & MaybeEncryption::REQUESTED_FLAGS != 0 {
             Ok(self.change_policy())
         } else {
             Err(self.change_policy())

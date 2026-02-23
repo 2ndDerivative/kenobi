@@ -1,17 +1,12 @@
-pub enum CannotSign {}
-pub enum MaybeSign {}
-pub enum CanSign {}
-
 pub(crate) mod sign {
+    use kenobi_core::typestate::{MaybeSigning, NoSigning};
     use libgssapi_sys::GSS_C_INTEG_FLAG;
-
-    use super::{CannotSign, MaybeSign};
 
     pub trait Sealed {
         const REQUESTED_FLAGS: u32 = 0;
     }
-    impl Sealed for CannotSign {}
-    impl Sealed for MaybeSign {
+    impl Sealed for NoSigning {}
+    impl Sealed for MaybeSigning {
         const REQUESTED_FLAGS: u32 = GSS_C_INTEG_FLAG;
     }
 }
@@ -19,19 +14,15 @@ pub(crate) mod sign {
 pub trait SignPolicy: sign::Sealed {}
 impl<S: sign::Sealed> SignPolicy for S {}
 
-pub enum CannotEncrypt {}
-pub enum MaybeEncrypt {}
-pub enum CanEncrypt {}
-
 pub(crate) mod encrypt {
+    use kenobi_core::typestate::{MaybeEncryption, NoEncryption};
     use libgssapi_sys::GSS_C_CONF_FLAG;
 
-    use super::{CannotEncrypt, MaybeEncrypt};
     pub trait Sealed {
         const REQUESTED_FLAGS: u32 = 0;
     }
-    impl Sealed for CannotEncrypt {}
-    impl Sealed for MaybeEncrypt {
+    impl Sealed for NoEncryption {}
+    impl Sealed for MaybeEncryption {
         const REQUESTED_FLAGS: u32 = GSS_C_CONF_FLAG;
     }
 }
