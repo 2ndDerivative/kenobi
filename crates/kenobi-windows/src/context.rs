@@ -1,5 +1,6 @@
 use std::{
     ffi::c_void,
+    mem::ManuallyDrop,
     ops::{Deref, DerefMut},
 };
 
@@ -10,6 +11,14 @@ use windows::Win32::Security::{
 
 #[derive(Default)]
 pub(crate) struct ContextHandle(SecHandle);
+impl ContextHandle {
+    pub fn leak(self) -> SecHandle {
+        ManuallyDrop::new(self).0
+    }
+    pub unsafe fn pick_up(sec: SecHandle) -> Self {
+        Self(sec)
+    }
+}
 impl Deref for ContextHandle {
     type Target = SecHandle;
     fn deref(&self) -> &Self::Target {
@@ -26,6 +35,7 @@ impl Drop for ContextHandle {
         let _ = unsafe { DeleteSecurityContext(&self.0) };
     }
 }
+unsafe impl Send for ContextHandle {}
 
 pub struct SessionKey {
     key: &'static [u8],

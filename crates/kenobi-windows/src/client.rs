@@ -161,7 +161,7 @@ impl<Usage, S, E, D> PendingClientContext<Usage, S, E, D> {
 fn step<Usage: OutboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: DelegationPolicy>(
     cred: Credentials<Usage>,
     target_spn: Option<Box<[u16]>>,
-    mut context: Option<ContextHandle>,
+    context: Option<ContextHandle>,
     mut attributes: u32,
     mut token_buffer: NonResizableVec,
     channel_bindings: Option<&[u8]>,
@@ -219,6 +219,8 @@ fn step<Usage: OutboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: Delegat
             pBuffers: v.as_mut_ptr(),
         }),
     };
+    let mut context = context.map(ContextHandle::leak);
+
     let mutual_auth: ISC_REQ_FLAGS = if S::REMOVE_MUTUAL_AUTH_FLAG {
         ISC_REQ_FLAGS(0)
     } else {
@@ -227,7 +229,7 @@ fn step<Usage: OutboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: Delegat
     let hres = unsafe {
         InitializeSecurityContextW(
             Some(cred.as_ref().raw_handle()),
-            context.as_deref().map(std::ptr::from_ref),
+            context.as_ref().map(std::ptr::from_ref),
             target_spn.as_ref().map(|b| b.as_ptr()),
             mutual_auth | S::ADDED_REQ_FLAGS | E::ADDED_REQ_FLAGS | D::ADDED_REQ_FLAGS,
             0,
@@ -243,7 +245,7 @@ fn step<Usage: OutboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: Delegat
     token_buffer.set_length(out_token_buffer.cbBuffer);
     match hres {
         SEC_E_OK => {
-            let context = context.expect("get_or_inserted before");
+            let context = unsafe { ContextHandle::pick_up(context.expect("get_or_inserted before")) };
             Ok(StepOut::Completed(ClientContext {
                 attributes,
                 cred,
@@ -256,7 +258,7 @@ fn step<Usage: OutboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: Delegat
             panic!("CompleteAuthToken is not supported by Negotiate")
         }
         SEC_I_CONTINUE_NEEDED => {
-            let context = context.expect("get_or_inserted before");
+            let context = unsafe { ContextHandle::pick_up(context.expect("get_or_inserted before")) };
             Ok(StepOut::Pending(PendingClientContext {
                 target_spn,
                 cred,
