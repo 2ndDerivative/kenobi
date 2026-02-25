@@ -1,8 +1,4 @@
-use std::{
-    ffi::c_void,
-    mem::ManuallyDrop,
-    ops::{Deref, DerefMut},
-};
+use std::{ffi::c_void, mem::ManuallyDrop, ops::Deref};
 
 use windows::Win32::Security::{
     Authentication::Identity::{DeleteSecurityContext, FreeContextBuffer, SecPkgContext_SessionKey},
@@ -18,16 +14,11 @@ impl ContextHandle {
     pub unsafe fn pick_up(sec: SecHandle) -> Self {
         Self(sec)
     }
-}
-impl Deref for ContextHandle {
-    type Target = SecHandle;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-impl DerefMut for ContextHandle {
-    fn deref_mut(&mut self) -> &mut Self::Target {
+    pub fn as_mut_ptr(&mut self) -> *mut SecHandle {
         &mut self.0
+    }
+    pub fn as_ptr(&self) -> *const SecHandle {
+        &self.0
     }
 }
 impl Drop for ContextHandle {

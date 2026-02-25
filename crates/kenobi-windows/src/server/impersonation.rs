@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, ops::Deref};
+use std::marker::PhantomData;
 
 use kenobi_core::cred::usage::Both;
 use windows::Win32::{
@@ -15,7 +15,7 @@ use crate::{
 
 impl<S, E> ServerContext<Both, S, E, CanDelegate> {
     pub fn impersonate_client(&self) -> Result<ImpersonationGuard<'_>, ImpersonationError> {
-        match unsafe { ImpersonateSecurityContext(self.context.deref()) } {
+        match unsafe { ImpersonateSecurityContext(self.context.as_ptr()) } {
             Ok(()) => Ok(ImpersonationGuard {
                 context: &self.context,
                 _enc: PhantomData,
@@ -47,7 +47,7 @@ impl AsRef<Credentials<Both>> for ImpersonatedCreds {
 }
 impl<'a> Drop for ImpersonationGuard<'a> {
     fn drop(&mut self) {
-        let _ = unsafe { RevertSecurityContext(self.context.deref()) };
+        let _ = unsafe { RevertSecurityContext(self.context.as_ptr()) };
     }
 }
 

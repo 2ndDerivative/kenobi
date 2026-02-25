@@ -1,4 +1,4 @@
-use std::{ffi::c_void, marker::PhantomData, ops::DerefMut};
+use std::{ffi::c_void, marker::PhantomData};
 
 use windows::Win32::{
     Foundation::{
@@ -195,7 +195,7 @@ fn step<Usage: InboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: Delegati
         cBuffers: buffers.len() as u32,
         pBuffers: buffers.as_mut_ptr(),
     };
-    let old_context_ptr = context.as_deref().map(std::ptr::from_ref);
+    let old_context_ptr = context.as_ref().map(|c| c.as_ptr());
     let hres = unsafe {
         AcceptSecurityContext(
             Some(cred.as_ref().raw_handle()),
@@ -206,7 +206,7 @@ fn step<Usage: InboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: Delegati
                 | <E as typestate::encrypt::Sealed>::REQUEST_FLAGS
                 | <D as typestate::delegation::Sealed>::REQUEST_FLAGS,
             SECURITY_NATIVE_DREP,
-            Some(context.get_or_insert_default().deref_mut()),
+            Some(context.as_mut().map(|c| c.as_mut_ptr()).unwrap_or_default()),
             Some(&mut out_token_buffer_desc),
             &mut attributes,
             None,

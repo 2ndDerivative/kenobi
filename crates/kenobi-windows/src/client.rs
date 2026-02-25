@@ -1,10 +1,6 @@
 use kenobi_core::cred::usage::OutboundUsable;
 use kenobi_core::typestate::{Encryption, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, Signing};
-use std::{
-    ffi::c_void,
-    marker::PhantomData,
-    ops::{Deref, DerefMut},
-};
+use std::{ffi::c_void, marker::PhantomData};
 use windows::Win32::{
     Foundation::{
         SEC_E_INTERNAL_ERROR, SEC_E_INVALID_HANDLE, SEC_E_INVALID_TOKEN, SEC_E_LOGON_DENIED,
@@ -56,7 +52,7 @@ impl<Usage, S, E, D> ClientContext<Usage, S, E, D> {
         let mut key = SecPkgContext_SessionKey::default();
         unsafe {
             QueryContextAttributesW(
-                self.context.deref(),
+                self.context.as_ptr(),
                 SECPKG_ATTR_SESSION_KEY,
                 std::ptr::from_mut(&mut key) as *mut c_void,
             )
@@ -226,17 +222,20 @@ fn step<Usage: OutboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: Delegat
     } else {
         ISC_REQ_MUTUAL_AUTH
     };
+
+    let opt_sec_handle = context.as_ref().map(std::ptr::from_ref);
+    let out_sec_handle = context.get_or_insert_default();
     let hres = unsafe {
         InitializeSecurityContextW(
             Some(cred.as_ref().raw_handle()),
-            context.as_ref().map(std::ptr::from_ref),
+            opt_sec_handle,
             target_spn.as_ref().map(|b| b.as_ptr()),
             mutual_auth | S::ADDED_REQ_FLAGS | E::ADDED_REQ_FLAGS | D::ADDED_REQ_FLAGS,
             0,
             SECURITY_NATIVE_DREP,
             in_token_buf_desc.as_ref().map(std::ptr::from_ref),
             0,
-            Some(context.get_or_insert_default().deref_mut()),
+            Some(out_sec_handle),
             Some(&mut out_token_buffer_desc),
             &mut attributes,
             None,
@@ -245,7 +244,7 @@ fn step<Usage: OutboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: Delegat
     token_buffer.set_length(out_token_buffer.cbBuffer);
     match hres {
         SEC_E_OK => {
-            let context = unsafe { ContextHandle::pick_up(context.expect("get_or_inserted before")) };
+            let context = unsafe { ContextHandle::pick_up(*out_sec_handle) };
             Ok(StepOut::Completed(ClientContext {
                 attributes,
                 cred,
@@ -258,7 +257,7 @@ fn step<Usage: OutboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: Delegat
             panic!("CompleteAuthToken is not supported by Negotiate")
         }
         SEC_I_CONTINUE_NEEDED => {
-            let context = unsafe { ContextHandle::pick_up(context.expect("get_or_inserted before")) };
+            let context = unsafe { ContextHandle::pick_up(*out_sec_handle) };
             Ok(StepOut::Pending(PendingClientContext {
                 target_spn,
                 cred,

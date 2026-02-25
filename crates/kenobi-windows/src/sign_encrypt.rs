@@ -44,7 +44,7 @@ impl ContextHandle {
         };
         let res = unsafe {
             EncryptMessage(
-                self.deref(),
+                self.as_ptr(),
                 if encrypt { 0 } else { SECQOP_WRAP_NO_ENCRYPT },
                 &sec_buffer,
                 0,
@@ -91,7 +91,7 @@ impl ContextHandle {
             pBuffers: buffers.as_mut_ptr(),
         };
         let mut pfqop = 0;
-        let res = unsafe { DecryptMessage(self.deref(), &buffer_desc, 0, Some(&mut pfqop)) };
+        let res = unsafe { DecryptMessage(self.as_ptr(), &buffer_desc, 0, Some(&mut pfqop)) };
         match res {
             SEC_E_OK => {
                 let header_length = buffers[1].pvBuffer as usize - buffers[0].pvBuffer as usize;
@@ -112,7 +112,7 @@ fn get_context_sizes(ctx: &ContextHandle) -> windows_result::Result<SecPkgContex
     let mut sizes = SecPkgContext_Sizes::default();
     unsafe {
         QueryContextAttributesW(
-            ctx.deref(),
+            ctx.as_ptr(),
             SECPKG_ATTR_SIZES,
             std::ptr::from_mut(&mut sizes) as *mut c_void,
         )?
