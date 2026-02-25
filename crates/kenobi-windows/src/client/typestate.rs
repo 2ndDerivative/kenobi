@@ -59,21 +59,18 @@ impl encryption::Sealed for MaybeEncryption {
 }
 
 pub(crate) mod delegate {
+    use kenobi_core::typestate::{MaybeDelegation, NoDelegation};
     use windows::Win32::Security::Authentication::Identity::{ISC_REQ_DELEGATE, ISC_REQ_FLAGS};
-
-    use super::{Delegatable, NoDelegation};
 
     pub trait Sealed {
         const ADDED_REQ_FLAGS: ISC_REQ_FLAGS = ISC_REQ_FLAGS(0);
         const RETURN_FLAGS: u32 = 0;
     }
     impl Sealed for NoDelegation {}
-    impl Sealed for Delegatable {
+    impl Sealed for MaybeDelegation {
         const ADDED_REQ_FLAGS: ISC_REQ_FLAGS = ISC_REQ_DELEGATE;
     }
 }
 
 pub trait DelegationPolicy: delegate::Sealed {}
-pub enum NoDelegation {}
-pub enum Delegatable {}
 impl<T: delegate::Sealed> DelegationPolicy for T {}

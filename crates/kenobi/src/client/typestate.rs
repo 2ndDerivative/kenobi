@@ -1,5 +1,6 @@
 use kenobi_core::typestate::{
-    DeniedSigning, Encryption, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, Signing,
+    Delegation, DeniedSigning, Encryption, MaybeDelegation, MaybeEncryption, MaybeSigning, NoDelegation, NoEncryption,
+    NoSigning, Signing,
 };
 
 pub(crate) mod sealed {
@@ -18,6 +19,13 @@ pub(crate) mod sealed {
     impl UnfinishedEncryptionSealed for super::NoEncryption {}
     impl UnfinishedEncryptionSealed for super::MaybeEncryption {}
 
+    #[cfg(windows)]
+    pub trait UnfinishedDelegationSealed: kenobi_windows::client::DelegationPolicy {}
+    #[cfg(unix)]
+    pub trait UnfinishedDelegationSealed: kenobi_unix::client::DelegationPolicy {}
+    impl UnfinishedDelegationSealed for super::NoDelegation {}
+    impl UnfinishedDelegationSealed for super::MaybeDelegation {}
+
     pub trait SigningSealed {}
     impl SigningSealed for super::NoSigning {}
     impl SigningSealed for super::DeniedSigning {}
@@ -28,6 +36,11 @@ pub(crate) mod sealed {
     impl EncryptionSealed for super::NoEncryption {}
     impl EncryptionSealed for super::MaybeEncryption {}
     impl EncryptionSealed for super::Encryption {}
+
+    pub trait DelegationSealed {}
+    impl DelegationSealed for super::NoDelegation {}
+    impl DelegationSealed for super::MaybeDelegation {}
+    impl DelegationSealed for super::Delegation {}
 }
 
 /// Trait for signing markers which can occur after negotiation has finished
@@ -60,3 +73,14 @@ impl EncryptionState for MaybeEncryption {}
 impl UnfinishedEncryptionState for MaybeEncryption {}
 
 impl EncryptionState for Encryption {}
+
+pub trait DelegationState: sealed::DelegationSealed {}
+pub trait UnfinishedDelegationState: DelegationState + sealed::UnfinishedDelegationSealed {}
+
+impl DelegationState for NoDelegation {}
+impl UnfinishedDelegationState for NoDelegation {}
+
+impl DelegationState for MaybeDelegation {}
+impl UnfinishedDelegationState for MaybeDelegation {}
+
+impl DelegationState for Delegation {}

@@ -30,10 +30,6 @@ pub(crate) mod encrypt {
 pub trait EncryptionPolicy: encrypt::Sealed {}
 impl<E: encrypt::Sealed> EncryptionPolicy for E {}
 
-pub enum NoDelegation {}
-pub enum MaybeDelegatable {}
-pub enum Delegatable {}
-
 pub(crate) mod delegation {
     use libgssapi_sys::GSS_C_DELEG_FLAG;
 

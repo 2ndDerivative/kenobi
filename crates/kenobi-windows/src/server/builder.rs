@@ -6,13 +6,13 @@ use crate::{
     server::{
         StepOut,
         error::AcceptContextError,
-        typestate::{DelegationPolicy, EncryptionPolicy, NoDelegation, OfferDelegate, SigningPolicy},
+        typestate::{DelegationPolicy, EncryptionPolicy, SigningPolicy},
     },
 };
 use kenobi_core::{
     channel_bindings::Channel,
     cred::usage::InboundUsable,
-    typestate::{MaybeEncryption, MaybeSigning, NoEncryption, NoSigning},
+    typestate::{MaybeDelegation, MaybeEncryption, MaybeSigning, NoDelegation, NoEncryption, NoSigning},
 };
 
 pub struct ServerBuilder<'cred, Usage, S = NoSigning, E = NoEncryption, D = NoDelegation> {
@@ -32,7 +32,7 @@ impl<Usage> ServerBuilder<'_, Usage, NoSigning, NoEncryption, NoDelegation> {
     }
 }
 impl<'cred, Usage, S, E> ServerBuilder<'cred, Usage, S, E, NoDelegation> {
-    pub fn request_delegation(self) -> ServerBuilder<'cred, Usage, S, E, OfferDelegate> {
+    pub fn request_delegation(self) -> ServerBuilder<'cred, Usage, S, E, MaybeDelegation> {
         self.convert_policy()
     }
 }

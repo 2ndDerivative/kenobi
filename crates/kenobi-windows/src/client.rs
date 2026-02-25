@@ -1,5 +1,7 @@
 use kenobi_core::cred::usage::OutboundUsable;
-use kenobi_core::typestate::{Encryption, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, Signing};
+use kenobi_core::typestate::{
+    Encryption, MaybeEncryption, MaybeSigning, NoDelegation, NoEncryption, NoSigning, Signing,
+};
 use std::{ffi::c_void, marker::PhantomData};
 use windows::Win32::{
     Foundation::{
@@ -29,7 +31,7 @@ use crate::{
 
 pub use builder::ClientBuilder;
 pub use error::InitializeContextError;
-pub use typestate::{Delegatable, DelegationPolicy, EncryptionPolicy, NoDelegation, SigningPolicy};
+pub use typestate::{DelegationPolicy, EncryptionPolicy, SigningPolicy};
 
 pub struct ClientContext<'cred, Usage, S = NoSigning, E = NoEncryption, D = NoDelegation> {
     attributes: u32,

@@ -27,8 +27,10 @@ mod typestate;
 
 pub use builder::ServerBuilder;
 pub use error::AcceptContextError;
-use kenobi_core::typestate::{Encryption, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, Signing};
-pub use typestate::{CanDelegate, NoDelegation, OfferDelegate};
+use kenobi_core::typestate::{
+    Delegation, Encryption, MaybeDelegation, MaybeEncryption, MaybeSigning, NoDelegation, NoEncryption, NoSigning,
+    Signing,
+};
 
 pub struct ServerContext<'cred, Usage, S, E, D> {
     cred: &'cred Credentials<Usage>,
@@ -64,12 +66,12 @@ impl<Usage, E, D> ServerContext<'_, Usage, Signing, E, D> {
         self.context.unwrap(message)
     }
 }
-impl<'cred, Usage, S, E> ServerContext<'cred, Usage, S, E, OfferDelegate> {
+impl<'cred, Usage, S, E> ServerContext<'cred, Usage, S, E, MaybeDelegation> {
     #[allow(clippy::type_complexity)]
     pub fn check_delegation(
         self,
-    ) -> Result<ServerContext<'cred, Usage, S, E, CanDelegate>, ServerContext<'cred, Usage, S, E, NoDelegation>> {
-        if self.attributes & <OfferDelegate as typestate::delegation::Sealed>::REQUEST_FLAGS.0 != 0 {
+    ) -> Result<ServerContext<'cred, Usage, S, E, Delegation>, ServerContext<'cred, Usage, S, E, NoDelegation>> {
+        if self.attributes & <MaybeDelegation as typestate::delegation::Sealed>::REQUEST_FLAGS.0 != 0 {
             Ok(self.convert_policy())
         } else {
             Err(self.convert_policy())

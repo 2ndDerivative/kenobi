@@ -5,11 +5,13 @@ use crate::{
     client::{
         StepOut,
         error::InitializeContextError,
-        typestate::{Delegatable, DelegationPolicy, EncryptionPolicy, NoDelegation, SigningPolicy},
+        typestate::{DelegationPolicy, EncryptionPolicy, SigningPolicy},
     },
     cred::Credentials,
 };
-use kenobi_core::typestate::{DeniedSigning, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning};
+use kenobi_core::typestate::{
+    DeniedSigning, MaybeDelegation, MaybeEncryption, MaybeSigning, NoDelegation, NoEncryption, NoSigning,
+};
 use kenobi_core::{channel_bindings::Channel, cred::usage::OutboundUsable};
 
 pub struct ClientBuilder<'cred, Usage, S = NoSigning, E = NoEncryption, D = NoDelegation> {
@@ -46,7 +48,7 @@ impl<'cred, Usage, E, D> ClientBuilder<'cred, Usage, NoSigning, E, D> {
     }
 }
 impl<'cred, Usage, S, E> ClientBuilder<'cred, Usage, S, E, NoDelegation> {
-    pub fn allow_delegation(self) -> ClientBuilder<'cred, Usage, S, E, Delegatable> {
+    pub fn allow_delegation(self) -> ClientBuilder<'cred, Usage, S, E, MaybeDelegation> {
         self.convert_policy()
     }
 }

@@ -1,4 +1,4 @@
-use kenobi_core::typestate::{MaybeEncryption, MaybeSigning, NoEncryption, NoSigning};
+use kenobi_core::typestate::{MaybeDelegation, MaybeEncryption, MaybeSigning, NoDelegation, NoEncryption, NoSigning};
 
 pub(crate) mod delegation {
     use windows::Win32::Security::Authentication::Identity::{ASC_REQ_DELEGATE, ASC_REQ_FLAGS, ASC_RET_DELEGATE};
@@ -11,15 +11,12 @@ pub(crate) mod delegation {
         const RETURN_FLAGS: u32 = 0;
         const REQUEST_FLAGS: ASC_REQ_FLAGS = ASC_REQ_FLAGS(0);
     }
-    impl Sealed for super::OfferDelegate {
+    impl Sealed for super::MaybeDelegation {
         const RETURN_FLAGS: u32 = ASC_RET_DELEGATE;
         const REQUEST_FLAGS: ASC_REQ_FLAGS = ASC_REQ_DELEGATE;
     }
 }
 
-pub enum NoDelegation {}
-pub enum OfferDelegate {}
-pub enum CanDelegate {}
 pub trait DelegationPolicy: delegation::Sealed {}
 impl<T: delegation::Sealed> DelegationPolicy for T {}
 
