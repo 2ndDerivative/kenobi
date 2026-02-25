@@ -22,7 +22,18 @@ impl std::fmt::Display for Error {
 }
 
 mod handle {
-    use windows::Win32::Security::{Authentication::Identity::FreeCredentialsHandle, Credentials::SecHandle};
+    use std::ffi::c_void;
+
+    use windows::{
+        Win32::Security::{
+            Authentication::Identity::{
+                FreeContextBuffer, FreeCredentialsHandle, QueryCredentialsAttributesW, SECPKG_CRED_ATTR_NAMES,
+                SecPkgCredentials_NamesW,
+            },
+            Credentials::SecHandle,
+        },
+        core::PCWSTR,
+    };
 
     pub struct CredentialsHandle(SecHandle);
     impl CredentialsHandle {
@@ -34,10 +45,29 @@ mod handle {
         pub fn as_raw_handle(&self) -> &SecHandle {
             &self.0
         }
+        pub fn get_identity(&self) -> windows_result::Result<String> {
+            let mut names = SecPkgCredentials_NamesW::default();
+            unsafe {
+                QueryCredentialsAttributesW(
+                    self.as_raw_handle(),
+                    SECPKG_CRED_ATTR_NAMES,
+                    std::ptr::from_mut(&mut names) as *mut c_void,
+                )?
+            };
+            let name = PCWSTR(names.sUserName);
+            let rust_st = unsafe { name.to_string() }.unwrap();
+            unsafe { FreeContextBuffer(names.sUserName as *mut c_void)? };
+            Ok(rust_st)
+        }
     }
     impl Drop for CredentialsHandle {
         fn drop(&mut self) {
             let _ = unsafe { FreeCredentialsHandle(&self.0) };
+        }
+    }
+    impl PartialEq for CredentialsHandle {
+        fn eq(&self, other: &Self) -> bool {
+            matches!((self.get_identity(), other.get_identity()), (Ok(v), Ok(u)) if v == u)
         }
     }
 }
@@ -66,10 +96,14 @@ impl<Usage: CredentialsUsage> Credentials<Usage> {
             )
         };
         match res {
-            Ok(()) => Ok(Self {
-                handle: unsafe { CredentialsHandle::pick_up(handle) },
-                _usage: PhantomData,
-            }),
+            Ok(()) => {
+                let handle = unsafe { CredentialsHandle::pick_up(handle) };
+                dbg!(handle.get_identity().unwrap());
+                Ok(Self {
+                    handle,
+                    _usage: PhantomData,
+                })
+            }
             Err(e) => Err(Error(e)),
         }
     }
@@ -97,6 +131,11 @@ impl<Usage> Credentials<Usage> {
 impl<Usage> AsRef<Credentials<Usage>> for Credentials<Usage> {
     fn as_ref(&self) -> &Credentials<Usage> {
         self
+    }
+}
+impl<U> PartialEq for Credentials<U> {
+    fn eq(&self, other: &Self) -> bool {
+        self.handle == other.handle
     }
 }
 
