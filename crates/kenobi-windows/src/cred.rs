@@ -157,3 +157,19 @@ impl CredentialsUsage for Both {
         SECPKG_CRED(SECPKG_CRED_BOTH)
     }
 }
+impl From<Credentials<Both>> for Credentials<Inbound> {
+    fn from(value: Credentials<Both>) -> Self {
+        Credentials {
+            handle: value.handle,
+            _usage: PhantomData,
+        }
+    }
+}
+impl From<Credentials<Both>> for Credentials<Outbound> {
+    fn from(value: Credentials<Both>) -> Self {
+        Credentials {
+            handle: value.handle,
+            _usage: PhantomData,
+        }
+    }
+}
