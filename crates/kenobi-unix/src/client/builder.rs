@@ -17,18 +17,18 @@ use crate::{
     name::NameHandle,
 };
 
-pub struct ClientBuilder<CU, S, E, D> {
-    cred: Credentials<CU>,
+pub struct ClientBuilder<'cred, CU, S, E, D> {
+    cred: &'cred Credentials<CU>,
     target_principal: Option<NameHandle>,
     requested_duration: Option<Duration>,
     channel_bindings: Option<Box<[u8]>>,
     marker: PhantomData<(S, E, D)>,
 }
-impl<CU: OutboundUsable> ClientBuilder<CU, NoSigning, NoEncryption, NoDelegation> {
-    pub fn new(
-        cred: Credentials<CU>,
+impl<CU: OutboundUsable> ClientBuilder<'_, CU, NoSigning, NoEncryption, NoDelegation> {
+    pub fn new<'cred>(
+        cred: &'cred Credentials<CU>,
         target_principal: Option<&str>,
-    ) -> Result<ClientBuilder<CU, NoSigning, NoEncryption, NoDelegation>, Error> {
+    ) -> Result<ClientBuilder<'cred, CU, NoSigning, NoEncryption, NoDelegation>, Error> {
         let target_principal = target_principal
             .map(|t| NameHandle::import(t, unsafe { GSS_C_NT_USER_NAME }))
             .transpose()?;
@@ -41,21 +41,21 @@ impl<CU: OutboundUsable> ClientBuilder<CU, NoSigning, NoEncryption, NoDelegation
         })
     }
 }
-impl<CU, E, D> ClientBuilder<CU, NoSigning, E, D> {
-    pub fn request_signing(self) -> ClientBuilder<CU, MaybeSigning, E, D> {
+impl<'cred, CU, E, D> ClientBuilder<'cred, CU, NoSigning, E, D> {
+    pub fn request_signing(self) -> ClientBuilder<'cred, CU, MaybeSigning, E, D> {
         self.convert_policy()
     }
-    pub fn deny_signing(self) -> ClientBuilder<CU, DeniedSigning, E, D> {
-        self.convert_policy()
-    }
-}
-impl<CU, S, D> ClientBuilder<CU, S, NoEncryption, D> {
-    pub fn request_encryption(self) -> ClientBuilder<CU, S, MaybeEncryption, D> {
+    pub fn deny_signing(self) -> ClientBuilder<'cred, CU, DeniedSigning, E, D> {
         self.convert_policy()
     }
 }
-impl<CU, S1, E1, D1> ClientBuilder<CU, S1, E1, D1> {
-    fn convert_policy<S2, E2, D2>(self) -> ClientBuilder<CU, S2, E2, D2> {
+impl<'cred, CU, S, D> ClientBuilder<'cred, CU, S, NoEncryption, D> {
+    pub fn request_encryption(self) -> ClientBuilder<'cred, CU, S, MaybeEncryption, D> {
+        self.convert_policy()
+    }
+}
+impl<'cred, CU, S1, E1, D1> ClientBuilder<'cred, CU, S1, E1, D1> {
+    fn convert_policy<S2, E2, D2>(self) -> ClientBuilder<'cred, CU, S2, E2, D2> {
         ClientBuilder {
             cred: self.cred,
             target_principal: self.target_principal,
@@ -78,8 +78,10 @@ impl<CU, S1, E1, D1> ClientBuilder<CU, S1, E1, D1> {
         })
     }
 }
-impl<CU: OutboundUsable, S: SignPolicy, E: EncryptionPolicy, D: DelegationPolicy> ClientBuilder<CU, S, E, D> {
-    pub fn initialize(self) -> Result<StepOut<CU, S, E, D>, Error> {
+impl<'cred, CU: OutboundUsable, S: SignPolicy, E: EncryptionPolicy, D: DelegationPolicy>
+    ClientBuilder<'cred, CU, S, E, D>
+{
+    pub fn initialize(self) -> Result<StepOut<'cred, CU, S, E, D>, Error> {
         step(
             None,
             self.cred,

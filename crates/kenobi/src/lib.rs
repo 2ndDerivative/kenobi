@@ -40,14 +40,6 @@ pub mod cred {
         _marker: PhantomData<Usage>,
     }
     impl<Usage: CredentialsUsage + OutboundUsable> Credentials<Usage> {
-        #[cfg(windows)]
-        pub(crate) fn into_platform(self) -> WinCred<Usage> {
-            self.inner
-        }
-        #[cfg(unix)]
-        pub(crate) fn into_platform(self) -> UnixCred<Usage> {
-            self.inner
-        }
         /// Grab the default credentials handle for a given principal (or the default user principal)
         ///
         /// On windows, this will use the current security context, and on Unix, this will use the default Keytab/ticket store

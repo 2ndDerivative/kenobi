@@ -23,7 +23,6 @@ use crate::{
 
 mod builder;
 mod error;
-pub mod impersonation;
 mod typestate;
 
 pub use builder::ServerBuilder;
@@ -31,33 +30,33 @@ pub use error::AcceptContextError;
 use kenobi_core::typestate::{Encryption, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, Signing};
 pub use typestate::{CanDelegate, NoDelegation, OfferDelegate};
 
-pub struct ServerContext<Usage, S, E, D> {
-    cred: Credentials<Usage>,
+pub struct ServerContext<'cred, Usage, S, E, D> {
+    cred: &'cred Credentials<Usage>,
     context: ContextHandle,
     attributes: u32,
     /// should never be resized
     token_buffer: NonResizableVec,
     _enc: PhantomData<(D, E, S)>,
 }
-impl<Usage: InboundUsable, S, E, D> ServerContext<Usage, S, E, D>
+impl<Usage: InboundUsable, S, E, D> ServerContext<'_, Usage, S, E, D>
 where
     S: SigningPolicy,
     E: EncryptionPolicy,
     D: DelegationPolicy,
 {
-    pub fn initialize(
-        cred: Credentials<Usage>,
+    pub fn initialize<'cred>(
+        cred: &'cred Credentials<Usage>,
         first_token: &[u8],
-    ) -> Result<StepOut<Usage, S, E, D>, AcceptContextError> {
+    ) -> Result<StepOut<'cred, Usage, S, E, D>, AcceptContextError> {
         step(cred, None, 0, NonResizableVec::new(), None, first_token)
     }
 }
-impl<Usage, S, E, D> ServerContext<Usage, S, E, D> {
+impl<Usage, S, E, D> ServerContext<'_, Usage, S, E, D> {
     pub fn last_token(&self) -> Option<&[u8]> {
         (!self.token_buffer.is_empty()).then_some(&self.token_buffer)
     }
 }
-impl<Usage, E, D> ServerContext<Usage, Signing, E, D> {
+impl<Usage, E, D> ServerContext<'_, Usage, Signing, E, D> {
     pub fn sign(&self, message: &[u8]) -> Result<Signature, WrapError> {
         self.context.wrap_sign(message).map_err(WrapError)
     }
@@ -65,11 +64,11 @@ impl<Usage, E, D> ServerContext<Usage, Signing, E, D> {
         self.context.unwrap(message)
     }
 }
-impl<Usage, S, E> ServerContext<Usage, S, E, OfferDelegate> {
+impl<'cred, Usage, S, E> ServerContext<'cred, Usage, S, E, OfferDelegate> {
     #[allow(clippy::type_complexity)]
     pub fn check_delegation(
         self,
-    ) -> Result<ServerContext<Usage, S, E, CanDelegate>, ServerContext<Usage, S, E, NoDelegation>> {
+    ) -> Result<ServerContext<'cred, Usage, S, E, CanDelegate>, ServerContext<'cred, Usage, S, E, NoDelegation>> {
         if self.attributes & <OfferDelegate as typestate::delegation::Sealed>::REQUEST_FLAGS.0 != 0 {
             Ok(self.convert_policy())
         } else {
@@ -77,9 +76,11 @@ impl<Usage, S, E> ServerContext<Usage, S, E, OfferDelegate> {
         }
     }
 }
-impl<Usage, E, D> ServerContext<Usage, MaybeSigning, E, D> {
+impl<'cred, Usage, E, D> ServerContext<'cred, Usage, MaybeSigning, E, D> {
     #[allow(clippy::type_complexity)]
-    pub fn check_signing(self) -> Result<ServerContext<Usage, Signing, E, D>, ServerContext<Usage, NoSigning, E, D>> {
+    pub fn check_signing(
+        self,
+    ) -> Result<ServerContext<'cred, Usage, Signing, E, D>, ServerContext<'cred, Usage, NoSigning, E, D>> {
         if self.attributes & <MaybeSigning as typestate::sign::Sealed>::REQUEST_FLAGS.0 != 0 {
             Ok(self.convert_policy())
         } else {
@@ -87,11 +88,11 @@ impl<Usage, E, D> ServerContext<Usage, MaybeSigning, E, D> {
         }
     }
 }
-impl<Usage, S, D> ServerContext<Usage, S, MaybeEncryption, D> {
+impl<'cred, Usage, S, D> ServerContext<'cred, Usage, S, MaybeEncryption, D> {
     #[allow(clippy::type_complexity)]
     pub fn check_encryption(
         self,
-    ) -> Result<ServerContext<Usage, S, Encryption, D>, ServerContext<Usage, S, NoEncryption, D>> {
+    ) -> Result<ServerContext<'cred, Usage, S, Encryption, D>, ServerContext<'cred, Usage, S, NoEncryption, D>> {
         if self.attributes & <MaybeEncryption as typestate::encrypt::Sealed>::REQUEST_FLAGS.0 != 0 {
             Ok(self.convert_policy())
         } else {
@@ -99,8 +100,8 @@ impl<Usage, S, D> ServerContext<Usage, S, MaybeEncryption, D> {
         }
     }
 }
-impl<Usage, S1, E1, D1> ServerContext<Usage, S1, E1, D1> {
-    fn convert_policy<S2, E2, D2>(self) -> ServerContext<Usage, S2, E2, D2> {
+impl<'cred, Usage, S1, E1, D1> ServerContext<'cred, Usage, S1, E1, D1> {
+    fn convert_policy<S2, E2, D2>(self) -> ServerContext<'cred, Usage, S2, E2, D2> {
         let ServerContext {
             cred,
             context,
@@ -118,24 +119,24 @@ impl<Usage, S1, E1, D1> ServerContext<Usage, S1, E1, D1> {
     }
 }
 
-pub struct PendingServerContext<Usage, S = NoSigning, E = NoEncryption, D = NoDelegation> {
-    cred: Credentials<Usage>,
+pub struct PendingServerContext<'cred, Usage, S = NoSigning, E = NoEncryption, D = NoDelegation> {
+    cred: &'cred Credentials<Usage>,
     context: ContextHandle,
     attributes: u32,
     token_buffer: NonResizableVec,
     _enc: PhantomData<(S, E, D)>,
 }
-impl<Usage, S, E, D> PendingServerContext<Usage, S, E, D> {
+impl<'cred, Usage, S, E, D> PendingServerContext<'cred, Usage, S, E, D> {
     pub fn next_token(&self) -> &[u8] {
         assert!(!self.token_buffer.is_empty());
         &self.token_buffer
     }
 }
 
-impl<Usage: InboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: DelegationPolicy>
-    PendingServerContext<Usage, S, E, D>
+impl<'cred, Usage: InboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: DelegationPolicy>
+    PendingServerContext<'cred, Usage, S, E, D>
 {
-    pub fn step(self, token: &[u8]) -> Result<StepOut<Usage, S, E, D>, AcceptContextError> {
+    pub fn step(self, token: &[u8]) -> Result<StepOut<'cred, Usage, S, E, D>, AcceptContextError> {
         step(
             self.cred,
             Some(self.context),
@@ -147,14 +148,14 @@ impl<Usage: InboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: DelegationP
     }
 }
 
-fn step<Usage: InboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: DelegationPolicy>(
-    cred: Credentials<Usage>,
+fn step<'cred, Usage: InboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: DelegationPolicy>(
+    cred: &'cred Credentials<Usage>,
     mut context: Option<ContextHandle>,
     mut attributes: u32,
     mut token_buffer: NonResizableVec,
     channel_bindings: Option<&[u8]>,
     in_token: &[u8],
-) -> Result<StepOut<Usage, S, E, D>, AcceptContextError> {
+) -> Result<StepOut<'cred, Usage, S, E, D>, AcceptContextError> {
     token_buffer.resize_max();
 
     let mut out_token_buffer = token_buffer.sec_buffer(SECBUFFER_TOKEN);
@@ -245,7 +246,7 @@ fn step<Usage: InboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: Delegati
     }
 }
 
-pub enum StepOut<Usage, S = NoSigning, E = NoEncryption, D = NoDelegation> {
-    Pending(PendingServerContext<Usage, S, E, D>),
-    Completed(ServerContext<Usage, S, E, D>),
+pub enum StepOut<'cred, Usage, S = NoSigning, E = NoEncryption, D = NoDelegation> {
+    Pending(PendingServerContext<'cred, Usage, S, E, D>),
+    Completed(ServerContext<'cred, Usage, S, E, D>),
 }

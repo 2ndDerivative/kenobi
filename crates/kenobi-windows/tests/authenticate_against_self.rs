@@ -31,7 +31,7 @@ fn main() {
     });
 
     let creds = Credentials::outbound(Some(&client_principal)).unwrap();
-    let ClientStepOut::Pending(mut client) = ClientBuilder::new_from_credentials(creds, Some(&server_principal))
+    let ClientStepOut::Pending(mut client) = ClientBuilder::new_from_credentials(&creds, Some(&server_principal))
         .request_signing()
         .request_encryption()
         .initialize()
@@ -89,7 +89,7 @@ fn server(recv: Receiver<Message>, return_sender: Sender<Vec<u8>>, _principal: &
     };
     eprintln!("[Server] Received initial token, setting up");
     let my_server_ctx: ServerContext<_, _, _, _> = 'ctx: {
-        let mut pending = match ServerBuilder::new_from_credentials(server_cred)
+        let mut pending = match ServerBuilder::new_from_credentials(&server_cred)
             .offer_signing()
             .offer_encryption()
             .initialize(&token)

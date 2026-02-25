@@ -26,25 +26,25 @@ mod typestate;
 ///
 /// This context represents the client side of the authentication, and may have a last token to be delivered to the server.
 /// The final token may be used using `ClientContext::last_token`
-pub struct ClientContext<Usage, S: SigningState, E: EncryptionState> {
+pub struct ClientContext<'cred, Usage, S: SigningState, E: EncryptionState> {
     #[cfg(windows)]
-    inner: WinContext<Usage, S, E>,
+    inner: WinContext<'cred, Usage, S, E>,
     #[cfg(unix)]
-    inner: UnixClientContext<Usage, S, E, NoDelegation>,
+    inner: UnixClientContext<'cred, Usage, S, E, NoDelegation>,
 }
-impl<Usage: CredentialsUsage + OutboundUsable> ClientContext<Usage, NoSigning, NoEncryption> {
+impl<'cred, Usage: CredentialsUsage + OutboundUsable> ClientContext<'cred, Usage, NoSigning, NoEncryption> {
     pub fn new_from_cred(
-        cred: Credentials<Usage>,
+        cred: &'cred Credentials<Usage>,
         target_principal: Option<&str>,
-    ) -> StepOut<Usage, NoSigning, NoEncryption> {
+    ) -> StepOut<'cred, Usage, NoSigning, NoEncryption> {
         #[cfg(windows)]
-        return StepOut::from_windows(WinContext::new_from_cred(cred.into_platform(), target_principal).unwrap());
+        return StepOut::from_windows(WinContext::new_from_cred(&cred.inner, target_principal).unwrap());
         #[cfg(unix)]
-        StepOut::from_unix(UnixClientContext::<Usage, _, _, _>::new(cred.into_platform(), target_principal).unwrap())
+        StepOut::from_unix(UnixClientContext::<Usage, _, _, _>::new(&cred.inner, target_principal).unwrap())
     }
 }
 #[cfg(windows)]
-impl<Usage, S: SigningState, E: EncryptionState> ClientContext<Usage, S, E> {
+impl<Usage, S: SigningState, E: EncryptionState> ClientContext<'_, Usage, S, E> {
     #[must_use]
     pub fn last_token(&self) -> Option<&[u8]> {
         self.inner.last_token()
@@ -56,7 +56,7 @@ impl<Usage, S: SigningState, E: EncryptionState> ClientContext<Usage, S, E> {
 }
 
 #[cfg(unix)]
-impl<Usage, S: SigningState, E: EncryptionState> ClientContext<Usage, S, E> {
+impl<Usage, S: SigningState, E: EncryptionState> ClientContext<'_, Usage, S, E> {
     #[must_use]
     pub fn last_token(&self) -> Option<&[u8]> {
         self.inner.last_token()
@@ -67,8 +67,10 @@ impl<Usage, S: SigningState, E: EncryptionState> ClientContext<Usage, S, E> {
     }
 }
 #[cfg(windows)]
-impl<Usage, E: EncryptionState> ClientContext<Usage, MaybeSigning, E> {
-    pub fn check_signing(self) -> Result<ClientContext<Usage, Signing, E>, ClientContext<Usage, NoSigning, E>> {
+impl<'cred, Usage, E: EncryptionState> ClientContext<'cred, Usage, MaybeSigning, E> {
+    pub fn check_signing(
+        self,
+    ) -> Result<ClientContext<'cred, Usage, Signing, E>, ClientContext<'cred, Usage, NoSigning, E>> {
         self.inner
             .check_signing()
             .map(|inner| ClientContext { inner })
@@ -76,8 +78,10 @@ impl<Usage, E: EncryptionState> ClientContext<Usage, MaybeSigning, E> {
     }
 }
 #[cfg(unix)]
-impl<Usage, E: EncryptionState> ClientContext<Usage, MaybeSigning, E> {
-    pub fn check_signing(self) -> Result<ClientContext<Usage, Signing, E>, ClientContext<Usage, NoSigning, E>> {
+impl<'cred, Usage, E: EncryptionState> ClientContext<'cred, Usage, MaybeSigning, E> {
+    pub fn check_signing(
+        self,
+    ) -> Result<ClientContext<'cred, Usage, Signing, E>, ClientContext<'cred, Usage, NoSigning, E>> {
         self.inner
             .check_signing()
             .map(|inner| ClientContext { inner })
@@ -85,10 +89,10 @@ impl<Usage, E: EncryptionState> ClientContext<Usage, MaybeSigning, E> {
     }
 }
 #[cfg(windows)]
-impl<Usage, S: SigningState> ClientContext<Usage, S, MaybeEncryption> {
+impl<'cred, Usage, S: SigningState> ClientContext<'cred, Usage, S, MaybeEncryption> {
     pub fn check_encryption(
         self,
-    ) -> Result<ClientContext<Usage, S, Encryption>, ClientContext<Usage, S, NoEncryption>> {
+    ) -> Result<ClientContext<'cred, Usage, S, Encryption>, ClientContext<'cred, Usage, S, NoEncryption>> {
         self.inner
             .check_encryption()
             .map(|inner| ClientContext { inner })
@@ -96,10 +100,10 @@ impl<Usage, S: SigningState> ClientContext<Usage, S, MaybeEncryption> {
     }
 }
 #[cfg(unix)]
-impl<Usage, S: SigningState> ClientContext<Usage, S, MaybeEncryption> {
+impl<'cred, Usage, S: SigningState> ClientContext<'cred, Usage, S, MaybeEncryption> {
     pub fn check_encryption(
         self,
-    ) -> Result<ClientContext<Usage, S, Encryption>, ClientContext<Usage, S, NoEncryption>> {
+    ) -> Result<ClientContext<'cred, Usage, S, Encryption>, ClientContext<'cred, Usage, S, NoEncryption>> {
         self.inner
             .check_encryption()
             .map(|inner| ClientContext { inner })
@@ -107,7 +111,7 @@ impl<Usage, S: SigningState> ClientContext<Usage, S, MaybeEncryption> {
     }
 }
 
-impl<Usage, E: EncryptionState> ClientContext<Usage, Signing, E> {
+impl<Usage, E: EncryptionState> ClientContext<'_, Usage, Signing, E> {
     pub fn sign(&self, message: &[u8]) -> Result<Signature, WrapError> {
         Ok(Signature::from_inner(
             self.inner.sign(message).map_err(WrapError::from_inner)?,
@@ -117,35 +121,37 @@ impl<Usage, E: EncryptionState> ClientContext<Usage, Signing, E> {
         self.inner.unwrap(message).map_err(UnwrapError::from_inner)
     }
 }
-impl<Usage> ClientContext<Usage, Signing, Encryption> {
+impl<Usage> ClientContext<'_, Usage, Signing, Encryption> {
     pub fn encrypt(&self, message: &[u8]) -> Result<impl std::ops::Deref<Target = [u8]> + use<Usage>, WrapError> {
         self.inner.encrypt(message).map_err(WrapError::from_inner)
     }
 }
 
-pub struct PendingClientContext<Usage, S: UnfinishedSigningState, E: UnfinishedEncryptionState> {
+pub struct PendingClientContext<'cred, Usage, S: UnfinishedSigningState, E: UnfinishedEncryptionState> {
     #[cfg(windows)]
-    inner: WinPendingClientContext<Usage, S, E>,
+    inner: WinPendingClientContext<'cred, Usage, S, E>,
     #[cfg(unix)]
-    inner: UnixPendingClientContext<Usage, S, E, NoDelegation>,
+    inner: UnixPendingClientContext<'cred, Usage, S, E, NoDelegation>,
 }
 
 #[cfg(windows)]
-impl<Usage, S: UnfinishedSigningState, E: UnfinishedEncryptionState> PendingClientContext<Usage, S, E> {
+impl<Usage, S: UnfinishedSigningState, E: UnfinishedEncryptionState> PendingClientContext<'_, Usage, S, E> {
     #[must_use]
     pub fn next_token(&self) -> &[u8] {
         self.inner.next_token()
     }
 }
 #[cfg(unix)]
-impl<Usage, S: UnfinishedSigningState, E: UnfinishedEncryptionState> PendingClientContext<Usage, S, E> {
+impl<Usage, S: UnfinishedSigningState, E: UnfinishedEncryptionState> PendingClientContext<'_, Usage, S, E> {
     pub fn next_token(&self) -> &[u8] {
         self.inner.next_token()
     }
 }
 #[cfg(windows)]
-impl<Usage: OutboundUsable, S: UnfinishedSigningState, E: UnfinishedEncryptionState> PendingClientContext<Usage, S, E> {
-    pub fn step(self, token: &[u8]) -> StepOut<Usage, S, E> {
+impl<'cred, Usage: OutboundUsable, S: UnfinishedSigningState, E: UnfinishedEncryptionState>
+    PendingClientContext<'cred, Usage, S, E>
+{
+    pub fn step(self, token: &[u8]) -> StepOut<'cred, Usage, S, E> {
         match self.inner.step(token).unwrap() {
             WinStepOut::Completed(inner) => StepOut::Finished(ClientContext { inner }),
             WinStepOut::Pending(inner) => StepOut::Pending(PendingClientContext { inner }),
@@ -154,8 +160,10 @@ impl<Usage: OutboundUsable, S: UnfinishedSigningState, E: UnfinishedEncryptionSt
 }
 
 #[cfg(unix)]
-impl<Usage: OutboundUsable, S: UnfinishedSigningState, E: UnfinishedEncryptionState> PendingClientContext<Usage, S, E> {
-    pub fn step(self, token: &[u8]) -> StepOut<Usage, S, E> {
+impl<'cred, Usage: OutboundUsable, S: UnfinishedSigningState, E: UnfinishedEncryptionState>
+    PendingClientContext<'cred, Usage, S, E>
+{
+    pub fn step(self, token: &[u8]) -> StepOut<'cred, Usage, S, E> {
         match self.inner.step(token).unwrap() {
             UnixStepOut::Finished(inner) => StepOut::Finished(ClientContext { inner }),
             UnixStepOut::Pending(inner) => StepOut::Pending(PendingClientContext { inner }),
@@ -163,20 +171,20 @@ impl<Usage: OutboundUsable, S: UnfinishedSigningState, E: UnfinishedEncryptionSt
     }
 }
 
-pub enum StepOut<Usage, S: UnfinishedSigningState, E: UnfinishedEncryptionState> {
-    Pending(PendingClientContext<Usage, S, E>),
-    Finished(ClientContext<Usage, S, E>),
+pub enum StepOut<'cred, Usage, S: UnfinishedSigningState, E: UnfinishedEncryptionState> {
+    Pending(PendingClientContext<'cred, Usage, S, E>),
+    Finished(ClientContext<'cred, Usage, S, E>),
 }
-impl<Usage, S: UnfinishedSigningState, E: UnfinishedEncryptionState> StepOut<Usage, S, E> {
+impl<'cred, Usage, S: UnfinishedSigningState, E: UnfinishedEncryptionState> StepOut<'cred, Usage, S, E> {
     #[cfg(windows)]
-    fn from_windows(win: WinStepOut<Usage, S, E>) -> Self {
+    fn from_windows(win: WinStepOut<'cred, Usage, S, E>) -> StepOut<'cred, Usage, S, E> {
         match win {
             WinStepOut::Completed(inner) => Self::Finished(ClientContext { inner }),
             WinStepOut::Pending(inner) => Self::Pending(PendingClientContext { inner }),
         }
     }
     #[cfg(unix)]
-    fn from_unix(win: UnixStepOut<Usage, S, E, NoDelegation>) -> Self {
+    fn from_unix(win: UnixStepOut<'cred, Usage, S, E, NoDelegation>) -> StepOut<'cred, Usage, S, E> {
         match win {
             UnixStepOut::Finished(inner) => Self::Finished(ClientContext { inner }),
             UnixStepOut::Pending(inner) => Self::Pending(PendingClientContext { inner }),

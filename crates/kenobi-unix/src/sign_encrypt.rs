@@ -5,7 +5,7 @@ use libgssapi_sys::{GSS_C_QOP_DEFAULT, gss_buffer_desc, gss_ctx_id_struct, gss_r
 
 use crate::{Error, client::ClientContext};
 
-impl<CU, C, E, D> ClientContext<CU, C, E, D> {
+impl<CU, C, E, D> ClientContext<'_, CU, C, E, D> {
     fn wrap(&self, encrypt: bool, message: &[u8]) -> Result<SecurityBuffer, Error> {
         let mut minor = 0;
         let mut input_buffer_desc = gss_buffer_desc {
@@ -70,7 +70,7 @@ impl<CU, C, E, D> ClientContext<CU, C, E, D> {
     }
 }
 
-impl<CU, E, D> ClientContext<CU, Signing, E, D> {
+impl<CU, E, D> ClientContext<'_, CU, Signing, E, D> {
     pub fn sign(&self, message: &[u8]) -> Result<Signed, Error> {
         self.wrap(false, message).map(Signed)
     }
@@ -83,7 +83,7 @@ impl<CU, E, D> ClientContext<CU, Signing, E, D> {
         })
     }
 }
-impl<CU, S, D> ClientContext<CU, S, Encryption, D> {
+impl<CU, S, D> ClientContext<'_, CU, S, Encryption, D> {
     pub fn encrypt(&self, message: &[u8]) -> Result<Encrypted, Error> {
         self.wrap(true, message).map(Encrypted)
     }
