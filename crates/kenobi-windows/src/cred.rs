@@ -1,12 +1,11 @@
 use std::marker::PhantomData;
 
-use crate::NEGOTIATE;
+use crate::{NEGOTIATE, cred::handle::CredentialsHandle};
 pub use kenobi_core::cred::usage::{Both, Inbound, Outbound};
 use windows::{
     Win32::Security::{
         Authentication::Identity::{
-            AcquireCredentialsHandleW, FreeCredentialsHandle, SECPKG_CRED, SECPKG_CRED_BOTH, SECPKG_CRED_INBOUND,
-            SECPKG_CRED_OUTBOUND,
+            AcquireCredentialsHandleW, SECPKG_CRED, SECPKG_CRED_BOTH, SECPKG_CRED_INBOUND, SECPKG_CRED_OUTBOUND,
         },
         Credentials::SecHandle,
     },
@@ -22,8 +21,29 @@ impl std::fmt::Display for Error {
     }
 }
 
+mod handle {
+    use windows::Win32::Security::{Authentication::Identity::FreeCredentialsHandle, Credentials::SecHandle};
+
+    pub struct CredentialsHandle(SecHandle);
+    impl CredentialsHandle {
+        /// # Safety
+        /// SecHandle must refer (and be the only one referring to) a valid freeable credentials handle
+        pub unsafe fn pick_up(sec: SecHandle) -> Self {
+            Self(sec)
+        }
+        pub fn as_raw_handle(&self) -> &SecHandle {
+            &self.0
+        }
+    }
+    impl Drop for CredentialsHandle {
+        fn drop(&mut self) {
+            let _ = unsafe { FreeCredentialsHandle(&self.0) };
+        }
+    }
+}
+
 pub struct Credentials<Usage> {
-    handle: SecHandle,
+    handle: handle::CredentialsHandle,
     _usage: PhantomData<Usage>,
 }
 impl<Usage: CredentialsUsage> Credentials<Usage> {
@@ -47,7 +67,7 @@ impl<Usage: CredentialsUsage> Credentials<Usage> {
         };
         match res {
             Ok(()) => Ok(Self {
-                handle,
+                handle: unsafe { CredentialsHandle::pick_up(handle) },
                 _usage: PhantomData,
             }),
             Err(e) => Err(Error(e)),
@@ -70,18 +90,13 @@ impl Credentials<Both> {
     }
 }
 impl<Usage> Credentials<Usage> {
-    pub(crate) fn raw_handle(&self) -> &SecHandle {
-        &self.handle
+    pub(crate) fn as_raw_handle(&self) -> &SecHandle {
+        self.handle.as_raw_handle()
     }
 }
 impl<Usage> AsRef<Credentials<Usage>> for Credentials<Usage> {
     fn as_ref(&self) -> &Credentials<Usage> {
         self
-    }
-}
-impl<Usage> Drop for Credentials<Usage> {
-    fn drop(&mut self) {
-        let _ = unsafe { FreeCredentialsHandle(&self.handle) };
     }
 }
 

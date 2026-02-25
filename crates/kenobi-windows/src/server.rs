@@ -198,7 +198,7 @@ fn step<Usage: InboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: Delegati
     let old_context_ptr = context.as_ref().map(|c| c.as_ptr());
     let hres = unsafe {
         AcceptSecurityContext(
-            Some(cred.as_ref().raw_handle()),
+            Some(cred.as_ref().as_raw_handle()),
             old_context_ptr,
             Some(&in_buf_desc),
             ASC_REQ_MUTUAL_AUTH

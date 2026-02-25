@@ -227,7 +227,7 @@ fn step<Usage: OutboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: Delegat
     let out_sec_handle = context.get_or_insert_default();
     let hres = unsafe {
         InitializeSecurityContextW(
-            Some(cred.as_ref().raw_handle()),
+            Some(cred.as_ref().as_raw_handle()),
             opt_sec_handle,
             target_spn.as_ref().map(|b| b.as_ptr()),
             mutual_auth | S::ADDED_REQ_FLAGS | E::ADDED_REQ_FLAGS | D::ADDED_REQ_FLAGS,
