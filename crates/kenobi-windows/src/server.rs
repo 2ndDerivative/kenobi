@@ -126,7 +126,7 @@ pub struct PendingServerContext<'cred, Usage, S = NoSigning, E = NoEncryption, D
     token_buffer: NonResizableVec,
     _enc: PhantomData<(S, E, D)>,
 }
-impl<'cred, Usage, S, E, D> PendingServerContext<'cred, Usage, S, E, D> {
+impl<Usage, S, E, D> PendingServerContext<'_, Usage, S, E, D> {
     pub fn next_token(&self) -> &[u8] {
         assert!(!self.token_buffer.is_empty());
         &self.token_buffer

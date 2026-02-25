@@ -18,8 +18,8 @@ pub struct ClientBuilder<'cred, Usage, S = NoSigning, E = NoEncryption, D = NoDe
     channel_bindings: Option<Box<[u8]>>,
     _enc: PhantomData<(S, E, D)>,
 }
-impl<'cred, Usage> ClientBuilder<'cred, Usage, NoSigning, NoEncryption, NoDelegation> {
-    pub fn new_from_credentials(
+impl<Usage> ClientBuilder<'_, Usage, NoSigning, NoEncryption, NoDelegation> {
+    pub fn new_from_credentials<'cred>(
         cred: &'cred Credentials<Usage>,
         target_principal: Option<&str>,
     ) -> ClientBuilder<'cred, Usage, NoSigning, NoEncryption, NoDelegation> {

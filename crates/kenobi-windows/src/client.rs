@@ -38,7 +38,7 @@ pub struct ClientContext<'cred, Usage, S = NoSigning, E = NoEncryption, D = NoDe
     token_buffer: NonResizableVec,
     _enc: PhantomData<(S, E, D)>,
 }
-impl<'cred, Usage, S, E, D> ClientContext<'cred, Usage, S, E, D> {
+impl<Usage, S, E, D> ClientContext<'_, Usage, S, E, D> {
     pub fn is_mutually_authenticated(&self) -> bool {
         self.attributes & ISC_RET_MUTUAL_AUTH != 0
     }
@@ -60,7 +60,7 @@ impl<'cred, Usage, S, E, D> ClientContext<'cred, Usage, S, E, D> {
         unsafe { Ok(SessionKey::new(key)) }
     }
 }
-impl<'cred, Usage, E, D> ClientContext<'cred, Usage, Signing, E, D> {
+impl<Usage, E, D> ClientContext<'_, Usage, Signing, E, D> {
     pub fn sign(&self, message: &[u8]) -> Result<Signature, WrapError> {
         self.context.wrap_sign(message).map_err(WrapError)
     }
@@ -68,7 +68,7 @@ impl<'cred, Usage, E, D> ClientContext<'cred, Usage, Signing, E, D> {
         self.context.unwrap(message)
     }
 }
-impl<'cred, Usage, D> ClientContext<'cred, Usage, Signing, Encryption, D> {
+impl<Usage, D> ClientContext<'_, Usage, Signing, Encryption, D> {
     pub fn encrypt(&self, message: &[u8]) -> Result<Encrypted, WrapError> {
         self.context.wrap_encrypt(message).map_err(WrapError)
     }
