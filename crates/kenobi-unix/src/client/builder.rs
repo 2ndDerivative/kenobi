@@ -3,7 +3,7 @@ use std::{marker::PhantomData, time::Duration};
 use kenobi_core::{
     channel_bindings::Channel,
     cred::usage::OutboundUsable,
-    typestate::{DeniedSigning, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning},
+    typestate::{DeniedSigning, MaybeDelegation, MaybeEncryption, MaybeSigning, NoDelegation, NoEncryption, NoSigning},
 };
 use libgssapi_sys::GSS_C_NT_USER_NAME;
 
@@ -11,7 +11,7 @@ use crate::{
     Error,
     client::{
         StepOut, step,
-        typestate::{DelegationPolicy, EncryptionPolicy, NoDelegation, SignPolicy},
+        typestate::{DelegationPolicy, EncryptionPolicy, SignPolicy},
     },
     cred::Credentials,
     name::NameHandle,
@@ -51,6 +51,11 @@ impl<'cred, CU, E, D> ClientBuilder<'cred, CU, NoSigning, E, D> {
 }
 impl<'cred, CU, S, D> ClientBuilder<'cred, CU, S, NoEncryption, D> {
     pub fn request_encryption(self) -> ClientBuilder<'cred, CU, S, MaybeEncryption, D> {
+        self.convert_policy()
+    }
+}
+impl<'cred, CU, S, E> ClientBuilder<'cred, CU, S, E, NoDelegation> {
+    pub fn allow_delegation(self) -> ClientBuilder<'cred, CU, S, E, MaybeDelegation> {
         self.convert_policy()
     }
 }

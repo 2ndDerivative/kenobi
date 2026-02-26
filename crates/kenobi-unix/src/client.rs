@@ -14,7 +14,7 @@ use libgssapi_sys::{
 
 use crate::{
     Error,
-    client::typestate::{DelegationPolicy, delegation::Sealed as _, encrypt::Sealed as _, sign::Sealed as _},
+    client::typestate::{delegation::Sealed as _, encrypt::Sealed as _, sign::Sealed as _},
     context::{ContextHandle, SessionKey},
     cred::Credentials,
     error::{GssErrorCode, MechanismErrorCode},
@@ -24,8 +24,11 @@ mod builder;
 mod typestate;
 
 pub use builder::ClientBuilder;
-use kenobi_core::typestate::{Encryption, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, Signing};
-pub use typestate::{Delegatable, EncryptionPolicy, MaybeDelegatable, NoDelegation, SignPolicy};
+use kenobi_core::typestate::{
+    Delegation, Encryption, MaybeDelegation, MaybeEncryption, MaybeSigning, NoDelegation, NoEncryption, NoSigning,
+    Signing,
+};
+pub use typestate::{DelegationPolicy, EncryptionPolicy, SignPolicy};
 
 pub struct ClientContext<'cred, CU, S, E, D> {
     attributes: u32,
@@ -68,12 +71,12 @@ impl<'cred, CU, S, D> ClientContext<'cred, CU, S, MaybeEncryption, D> {
         }
     }
 }
-impl<'cred, CU, S, E> ClientContext<'cred, CU, S, E, MaybeDelegatable> {
+impl<'cred, CU, S, E> ClientContext<'cred, CU, S, E, MaybeDelegation> {
     #[allow(clippy::type_complexity)]
     pub fn check_delegation(
         self,
-    ) -> Result<ClientContext<'cred, CU, S, E, Delegatable>, ClientContext<'cred, CU, S, E, NoDelegation>> {
-        if self.attributes & MaybeDelegatable::REQUESTED_FLAGS != 0 {
+    ) -> Result<ClientContext<'cred, CU, S, E, Delegation>, ClientContext<'cred, CU, S, E, NoDelegation>> {
+        if self.attributes & MaybeDelegation::REQUESTED_FLAGS != 0 {
             Ok(self.change_policy())
         } else {
             Err(self.change_policy())

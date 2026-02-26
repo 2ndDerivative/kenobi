@@ -2,8 +2,7 @@ use kenobi_core::cred::usage::OutboundUsable;
 
 #[cfg(unix)]
 use kenobi_unix::client::{
-    ClientContext as UnixClientContext, NoDelegation, PendingClientContext as UnixPendingClientContext,
-    StepOut as UnixStepOut,
+    ClientContext as UnixClientContext, PendingClientContext as UnixPendingClientContext, StepOut as UnixStepOut,
 };
 #[cfg(windows)]
 use kenobi_windows::client::{
@@ -186,10 +185,15 @@ impl<
 }
 
 #[cfg(unix)]
-impl<'cred, Usage: OutboundUsable, S: UnfinishedSigningState, E: UnfinishedEncryptionState>
-    PendingClientContext<'cred, Usage, S, E>
+impl<
+    'cred,
+    Usage: OutboundUsable,
+    S: UnfinishedSigningState,
+    E: UnfinishedEncryptionState,
+    D: UnfinishedDelegationState,
+> PendingClientContext<'cred, Usage, S, E, D>
 {
-    pub fn step(self, token: &[u8]) -> StepOut<'cred, Usage, S, E> {
+    pub fn step(self, token: &[u8]) -> StepOut<'cred, Usage, S, E, D> {
         match self.inner.step(token).unwrap() {
             UnixStepOut::Finished(inner) => StepOut::Finished(ClientContext { inner }),
             UnixStepOut::Pending(inner) => StepOut::Pending(PendingClientContext { inner }),
@@ -212,7 +216,7 @@ impl<'cred, Usage, S: UnfinishedSigningState, E: UnfinishedEncryptionState, D: U
         }
     }
     #[cfg(unix)]
-    fn from_unix(win: UnixStepOut<'cred, Usage, S, E, NoDelegation>) -> StepOut<'cred, Usage, S, E> {
+    fn from_unix(win: UnixStepOut<'cred, Usage, S, E, D>) -> StepOut<'cred, Usage, S, E, D> {
         match win {
             UnixStepOut::Finished(inner) => Self::Finished(ClientContext { inner }),
             UnixStepOut::Pending(inner) => Self::Pending(PendingClientContext { inner }),

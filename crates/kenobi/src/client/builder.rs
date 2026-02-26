@@ -4,18 +4,13 @@ use kenobi_core::{
     typestate::{DeniedSigning, MaybeDelegation},
 };
 
-#[cfg(windows)]
-use crate::client::typestate::UnfinishedDelegationState;
 use crate::{
     client::{
         EncryptionState, MaybeEncryption, MaybeSigning, NoDelegation, NoEncryption, NoSigning, SigningState, StepOut,
-        UnfinishedEncryptionState, UnfinishedSigningState, typestate::DelegationState,
+        UnfinishedDelegationState, UnfinishedEncryptionState, UnfinishedSigningState, typestate::DelegationState,
     },
     cred::Credentials,
 };
-
-#[cfg(unix)]
-use kenobi_unix::client::NoDelegation;
 
 /// A Builder to setup a signing and encryption policy for a client context.
 /// finish setting up with `ClientBuilder::initialize`
@@ -114,7 +109,7 @@ impl<
 > ClientBuilder<'cred, Usage, S, E, D>
 {
     #[must_use]
-    pub fn initialize(self) -> StepOut<'cred, Usage, S, E> {
+    pub fn initialize(self) -> StepOut<'cred, Usage, S, E, D> {
         StepOut::from_unix(self.inner.initialize().unwrap())
     }
 }

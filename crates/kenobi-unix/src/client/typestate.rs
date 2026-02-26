@@ -31,15 +31,14 @@ pub trait EncryptionPolicy: encrypt::Sealed {}
 impl<E: encrypt::Sealed> EncryptionPolicy for E {}
 
 pub(crate) mod delegation {
+    use kenobi_core::typestate::{MaybeDelegation, NoDelegation};
     use libgssapi_sys::GSS_C_DELEG_FLAG;
-
-    use crate::client::typestate::{MaybeDelegatable, NoDelegation};
 
     pub trait Sealed {
         const REQUESTED_FLAGS: u32 = 0;
     }
     impl Sealed for NoDelegation {}
-    impl Sealed for MaybeDelegatable {
+    impl Sealed for MaybeDelegation {
         const REQUESTED_FLAGS: u32 = GSS_C_DELEG_FLAG;
     }
 }
