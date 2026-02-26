@@ -108,6 +108,7 @@ impl<'cred, Usage, S: SigningState, D: DelegationState> ClientContext<'cred, Usa
 }
 #[cfg(unix)]
 impl<'cred, Usage, S: SigningState, D: DelegationState> ClientContext<'cred, Usage, S, MaybeEncryption, D> {
+    #[allow(clippy::type_complexity)]
     pub fn check_encryption(
         self,
     ) -> Result<ClientContext<'cred, Usage, S, Encryption, D>, ClientContext<'cred, Usage, S, NoEncryption, D>> {
