@@ -98,7 +98,6 @@ impl<Usage: CredentialsUsage> Credentials<Usage> {
         match res {
             Ok(()) => {
                 let handle = unsafe { CredentialsHandle::pick_up(handle) };
-                dbg!(handle.get_identity().unwrap());
                 Ok(Self {
                     handle,
                     _usage: PhantomData,
