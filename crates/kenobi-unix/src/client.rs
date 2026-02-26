@@ -154,7 +154,7 @@ fn step<'cred, CU: OutboundUsable, S: SignPolicy, E: EncryptionPolicy, D: Delega
     requested_duration: Option<Duration>,
     channel_bindings: Option<Box<[u8]>>,
 ) -> Result<StepOut<'cred, CU, S, E, D>, Error> {
-    let mut ctx_ptr = ctx.as_mut().map(|c| std::ptr::from_mut(c.as_mut())).unwrap_or_default();
+    let mut ctx_ptr = ctx.as_mut().map(ContextHandle::as_mut).unwrap_or_default();
     let mut minor_status = 0;
     let mut remaining_seconds = 0;
     let mut attributes = 0;
@@ -192,7 +192,7 @@ fn step<'cred, CU: OutboundUsable, S: SignPolicy, E: EncryptionPolicy, D: Delega
         GSS_S_COMPLETE => Ok(StepOut::Finished(ClientContext {
             attributes,
             cred,
-            context: ctx.unwrap_or_else(|| ContextHandle::new(NonNull::new(ctx_ptr).unwrap())),
+            context: ctx.unwrap_or_else(|| unsafe { ContextHandle::pick_up(NonNull::new(ctx_ptr).unwrap()) }),
             next_token,
             marker: PhantomData,
         })),
@@ -200,7 +200,7 @@ fn step<'cred, CU: OutboundUsable, S: SignPolicy, E: EncryptionPolicy, D: Delega
             let valid_until = Instant::now() + Duration::from_secs(remaining_seconds.into());
             Ok(StepOut::Pending(PendingClientContext {
                 cred,
-                context: ctx.unwrap_or_else(|| ContextHandle::new(NonNull::new(ctx_ptr).unwrap())),
+                context: ctx.unwrap_or_else(|| unsafe { ContextHandle::pick_up(NonNull::new(ctx_ptr).unwrap()) }),
                 next_token: Token(next_token),
                 target_principal,
                 valid_until,

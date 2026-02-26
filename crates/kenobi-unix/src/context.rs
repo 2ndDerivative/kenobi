@@ -7,13 +7,18 @@ use libgssapi_sys::{
 
 use crate::Error;
 
-pub struct ContextHandle(NonNull<gss_ctx_id_struct>);
+pub(crate) struct ContextHandle(NonNull<gss_ctx_id_struct>);
+// Does not expose a mutable interface and is (supposed to be) sole owner of the underlying context handle
+unsafe impl Send for ContextHandle {}
+unsafe impl Sync for ContextHandle {}
 impl ContextHandle {
-    pub fn new(ctx: NonNull<gss_ctx_id_struct>) -> Self {
+    /// # Safety
+    /// Pointer must be a valid living security context
+    pub unsafe fn pick_up(ctx: NonNull<gss_ctx_id_struct>) -> Self {
         Self(ctx)
     }
-    pub fn as_mut(&mut self) -> &mut gss_ctx_id_struct {
-        unsafe { self.0.as_mut() }
+    pub fn as_mut(&mut self) -> *mut gss_ctx_id_struct {
+        self.0.as_ptr()
     }
     pub fn session_key(&self) -> Result<SessionKey, Error> {
         let mut minor = 0;
@@ -42,6 +47,8 @@ impl Drop for ContextHandle {
 }
 
 pub struct SessionKey(*mut gss_buffer_set_desc_struct);
+unsafe impl Sync for SessionKey {}
+unsafe impl Send for SessionKey {}
 impl SessionKey {
     pub fn as_slice(&self) -> &[u8] {
         let deref: gss_buffer_set_desc_struct = unsafe { *self.0 };
