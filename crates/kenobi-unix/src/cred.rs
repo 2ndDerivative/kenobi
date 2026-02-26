@@ -22,8 +22,8 @@ pub struct Credentials<Usage = Outbound> {
     _usage: PhantomData<Usage>,
 }
 // Valid, because Credentials does not expose any mutability and is the sole owner of the underlying memory
-unsafe impl Send for Credentials {}
-unsafe impl Sync for Credentials {}
+unsafe impl<Usage> Send for Credentials<Usage> {}
+unsafe impl<Usage> Sync for Credentials<Usage> {}
 impl<Usage: CredentialsUsage> Credentials<Usage> {
     pub fn new(principal: Option<&str>, time_required: Option<Duration>) -> Result<Self, super::Error> {
         let mut name = principal
