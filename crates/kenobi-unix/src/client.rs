@@ -18,6 +18,7 @@ use crate::{
     context::{ContextHandle, SessionKey},
     cred::Credentials,
     error::{GssErrorCode, MechanismErrorCode},
+    mech_kerberos,
     name::NameHandle,
 };
 mod builder;
@@ -175,7 +176,7 @@ fn step<'cred, CU: OutboundUsable, S: SignPolicy, E: EncryptionPolicy, D: Delega
             NonNull::as_ptr(cred.cred_handle),
             &mut ctx_ptr,
             target_principal.as_mut().map_or(std::ptr::null_mut(), |nn| nn.as_mut()),
-            std::ptr::null_mut(),
+            &mut mech_kerberos(),
             GSS_C_MUTUAL_FLAG | S::REQUESTED_FLAGS | E::REQUESTED_FLAGS | D::REQUESTED_FLAGS,
             requested_duration.map_or(_GSS_C_INDEFINITE, |d| d.as_secs().min(u32::MAX.into()) as u32),
             channel_application_buffer

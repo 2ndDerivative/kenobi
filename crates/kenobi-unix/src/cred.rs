@@ -6,8 +6,8 @@ use std::{
 };
 
 use libgssapi_sys::{
-    _GSS_C_INDEFINITE, _GSS_S_FAILURE, GSS_C_ACCEPT, GSS_C_BOTH, GSS_C_INITIATE, GSS_C_NT_USER_NAME, gss_acquire_cred,
-    gss_cred_id_struct, gss_release_cred,
+    _GSS_C_INDEFINITE, _GSS_S_FAILURE, GSS_C_ACCEPT, GSS_C_BOTH, GSS_C_INITIATE, GSS_C_NT_USER_NAME, gss_OID_set_desc,
+    gss_acquire_cred, gss_cred_id_struct, gss_release_cred,
 };
 
 use crate::{
@@ -26,10 +26,14 @@ impl<Usage: CredentialsUsage> Credentials<Usage> {
         let mut name = principal
             .map(|p| NameHandle::import(p, unsafe { GSS_C_NT_USER_NAME }))
             .transpose()?;
-
         let mut minor = 0;
         let mut validity = 0;
         let mut cred_handle = std::ptr::null_mut();
+        let mut mech = crate::mech_kerberos();
+        let mut mech_set = gss_OID_set_desc {
+            count: 1,
+            elements: &mut mech,
+        };
         if let Some(error) = GssErrorCode::new(unsafe {
             gss_acquire_cred(
                 &mut minor,
@@ -39,7 +43,7 @@ impl<Usage: CredentialsUsage> Credentials<Usage> {
                 time_required
                     .map(|d| d.as_secs().try_into().unwrap_or(u32::MAX))
                     .unwrap_or(_GSS_C_INDEFINITE),
-                std::ptr::null_mut(),
+                &mut mech_set,
                 Usage::to_c(),
                 &mut cred_handle,
                 std::ptr::null_mut(),
