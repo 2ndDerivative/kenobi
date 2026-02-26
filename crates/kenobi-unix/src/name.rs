@@ -13,13 +13,15 @@ use crate::{
 pub struct NameHandle {
     name: NonNull<gss_name_struct>,
 }
+unsafe impl Send for NameHandle {}
+unsafe impl Sync for NameHandle {}
 impl NameHandle {
-    pub fn import(principal: &str, oid: *mut gss_OID_desc_struct) -> Result<Self, Error> {
-        let name = import_name(principal, oid)?;
+    pub unsafe fn import(principal: &str, oid: *mut gss_OID_desc_struct) -> Result<Self, Error> {
+        let name = unsafe { import_name(principal, oid)? };
         Ok(NameHandle { name })
     }
-    pub fn as_mut(&mut self) -> &mut gss_name_struct {
-        unsafe { self.name.as_mut() }
+    pub fn as_mut(&mut self) -> *mut gss_name_struct {
+        self.name.as_ptr()
     }
 }
 impl Drop for NameHandle {
@@ -60,7 +62,7 @@ impl Display for NameHandle {
     }
 }
 
-fn import_name(principal: &str, oid: gss_OID) -> Result<NonNull<gss_name_struct>, Error> {
+unsafe fn import_name(principal: &str, oid: gss_OID) -> Result<NonNull<gss_name_struct>, Error> {
     let mut minor = 0;
     let mut namebuffer = gss_buffer_desc_struct {
         length: principal.len(),

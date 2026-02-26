@@ -30,7 +30,7 @@ impl<CU: OutboundUsable> ClientBuilder<'_, CU, NoSigning, NoEncryption, NoDelega
         target_principal: Option<&str>,
     ) -> Result<ClientBuilder<'cred, CU, NoSigning, NoEncryption, NoDelegation>, Error> {
         let target_principal = target_principal
-            .map(|t| NameHandle::import(t, unsafe { GSS_C_NT_USER_NAME }))
+            .map(|t| unsafe { NameHandle::import(t, GSS_C_NT_USER_NAME) })
             .transpose()?;
         Ok(ClientBuilder {
             cred,

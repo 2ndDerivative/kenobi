@@ -27,7 +27,7 @@ unsafe impl Sync for Credentials {}
 impl<Usage: CredentialsUsage> Credentials<Usage> {
     pub fn new(principal: Option<&str>, time_required: Option<Duration>) -> Result<Self, super::Error> {
         let mut name = principal
-            .map(|p| NameHandle::import(p, unsafe { GSS_C_NT_USER_NAME }))
+            .map(|p| unsafe { NameHandle::import(p, GSS_C_NT_USER_NAME) })
             .transpose()?;
         let mut minor = 0;
         let mut validity = 0;
@@ -40,9 +40,7 @@ impl<Usage: CredentialsUsage> Credentials<Usage> {
         if let Some(error) = GssErrorCode::new(unsafe {
             gss_acquire_cred(
                 &mut minor,
-                name.as_mut()
-                    .map(|re| std::ptr::from_mut(re.as_mut()))
-                    .unwrap_or_default(),
+                name.as_mut().map(|re| re.as_mut()).unwrap_or_default(),
                 time_required
                     .map(|d| d.as_secs().try_into().unwrap_or(u32::MAX))
                     .unwrap_or(_GSS_C_INDEFINITE),

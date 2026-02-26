@@ -9,12 +9,14 @@ use kenobi_core::cred::usage::OutboundUsable;
 use libgssapi_sys::{
     _GSS_C_INDEFINITE, GSS_C_MUTUAL_FLAG, GSS_S_COMPLETE, GSS_S_CONTINUE_NEEDED, gss_buffer_desc,
     gss_buffer_desc_struct, gss_channel_bindings_struct, gss_delete_sec_context, gss_init_sec_context,
-    gss_release_buffer,
 };
 
 use crate::{
     Error,
-    client::typestate::{delegation::Sealed as _, encrypt::Sealed as _, sign::Sealed as _},
+    client::{
+        token::Token,
+        typestate::{delegation::Sealed as _, encrypt::Sealed as _, sign::Sealed as _},
+    },
     context::{ContextHandle, SessionKey},
     cred::Credentials,
     error::{GssErrorCode, MechanismErrorCode},
@@ -35,7 +37,7 @@ pub struct ClientContext<'cred, CU, S, E, D> {
     attributes: u32,
     cred: &'cred Credentials<CU>,
     pub(crate) context: ContextHandle,
-    next_token: gss_buffer_desc,
+    next_token: Option<Token>,
     marker: PhantomData<(S, E, D)>,
 }
 
@@ -95,13 +97,7 @@ impl<'cred, CU, S1, E1, D1> ClientContext<'cred, CU, S1, E1, D1> {
         }
     }
     pub fn last_token(&self) -> Option<&[u8]> {
-        if self.next_token.length == 0 || self.next_token.value.is_null() {
-            None
-        } else {
-            let slice =
-                unsafe { std::slice::from_raw_parts(self.next_token.value as *const u8, self.next_token.length) };
-            Some(slice)
-        }
+        self.next_token.as_ref().map(|t| t.as_slice())
     }
     pub fn session_key(&self) -> Result<SessionKey, Error> {
         self.context.session_key()
@@ -111,7 +107,7 @@ impl<'cred, CU, S1, E1, D1> ClientContext<'cred, CU, S1, E1, D1> {
 pub struct PendingClientContext<'cred, CU, S, E, D> {
     context: ContextHandle,
     cred: &'cred Credentials<CU>,
-    next_token: Token,
+    next_token: token::Token,
     target_principal: Option<NameHandle>,
     requested_duration: Option<Duration>,
     channel_bindings: Option<Box<[u8]>>,
@@ -193,7 +189,7 @@ fn step<'cred, CU: OutboundUsable, S: SignPolicy, E: EncryptionPolicy, D: Delega
             attributes,
             cred,
             context: ctx.unwrap_or_else(|| unsafe { ContextHandle::pick_up(NonNull::new(ctx_ptr).unwrap()) }),
-            next_token,
+            next_token: unsafe { Token::pick_up(next_token) },
             marker: PhantomData,
         })),
         stat if stat & GSS_S_CONTINUE_NEEDED != 0 => {
@@ -201,7 +197,7 @@ fn step<'cred, CU: OutboundUsable, S: SignPolicy, E: EncryptionPolicy, D: Delega
             Ok(StepOut::Pending(PendingClientContext {
                 cred,
                 context: ctx.unwrap_or_else(|| unsafe { ContextHandle::pick_up(NonNull::new(ctx_ptr).unwrap()) }),
-                next_token: Token(next_token),
+                next_token: unsafe { Token::pick_up(next_token).unwrap() },
                 target_principal,
                 valid_until,
                 requested_duration,
@@ -227,16 +223,27 @@ pub enum StepOut<'cred, CU, S, E, D> {
     Finished(ClientContext<'cred, CU, S, E, D>),
 }
 
-struct Token(gss_buffer_desc);
-impl Drop for Token {
-    fn drop(&mut self) {
-        let mut _min = 0;
-        let _maj = unsafe { gss_release_buffer(&mut _min, &mut self.0) };
+mod token {
+    use libgssapi_sys::{gss_buffer_desc, gss_release_buffer};
+
+    pub struct Token(gss_buffer_desc);
+    unsafe impl Sync for Token {}
+    unsafe impl Send for Token {}
+    impl Drop for Token {
+        fn drop(&mut self) {
+            let mut _min = 0;
+            let _maj = unsafe { gss_release_buffer(&mut _min, &mut self.0) };
+        }
     }
-}
-impl Token {
-    fn as_slice(&self) -> &[u8] {
-        unsafe { std::slice::from_raw_parts(self.0.value as *const u8, self.0.length) }
+    impl Token {
+        /// # Safety
+        /// Must be sole owner of underlying buffer
+        pub unsafe fn pick_up(buf: gss_buffer_desc) -> Option<Self> {
+            if buf.value.is_null() { None } else { Some(Self(buf)) }
+        }
+        pub fn as_slice(&self) -> &[u8] {
+            unsafe { std::slice::from_raw_parts(self.0.value as *const u8, self.0.length) }
+        }
     }
 }
 
