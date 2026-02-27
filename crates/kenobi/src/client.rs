@@ -54,7 +54,7 @@ impl<Usage, S: SigningState, E: EncryptionState, D: DelegationState> ClientConte
         self.inner.last_token()
     }
     #[must_use]
-    pub fn session_key(&self) -> impl std::ops::Deref<Target = [u8]> {
+    pub fn session_key(&self) -> impl std::ops::Deref<Target = [u8]> + use<Usage, S, E, D> {
         self.inner.get_session_key().unwrap()
     }
 }
@@ -66,7 +66,7 @@ impl<Usage, S: SigningState, E: EncryptionState, D: DelegationState> ClientConte
         self.inner.last_token()
     }
     #[must_use]
-    pub fn session_key(&self) -> impl std::ops::Deref<Target = [u8]> {
+    pub fn session_key(&self) -> impl std::ops::Deref<Target = [u8]> + use<Usage, S, E, D> {
         self.inner.session_key().unwrap()
     }
 }
