@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::{NEGOTIATE, cred::handle::CredentialsHandle};
+use crate::{KERBEROS, NEGOTIATE, cred::handle::CredentialsHandle};
 pub use kenobi_core::cred::usage::{Both, Inbound, Outbound};
 use windows::{
     Win32::Security::{
@@ -78,6 +78,15 @@ pub struct Credentials<Usage> {
 }
 impl<Usage: CredentialsUsage> Credentials<Usage> {
     pub fn acquire_default(principal: Option<&str>) -> Result<Credentials<Usage>, Error> {
+        Credentials::acquire_pure_kerberos(principal)
+    }
+    pub fn acquire_negotiate(principal: Option<&str>) -> Result<Credentials<Usage>, Error> {
+        Credentials::acquire(principal, NEGOTIATE)
+    }
+    pub fn acquire_pure_kerberos(principal: Option<&str>) -> Result<Credentials<Usage>, Error> {
+        Credentials::acquire(principal, KERBEROS)
+    }
+    fn acquire(principal: Option<&str>, mech: PCWSTR) -> Result<Credentials<Usage>, Error> {
         let mut handle = SecHandle::default();
         let mut _valid_seconds = 0;
         let princ_wide = principal.map(crate::to_wide);
@@ -85,7 +94,7 @@ impl<Usage: CredentialsUsage> Credentials<Usage> {
         let res = unsafe {
             AcquireCredentialsHandleW(
                 PCWSTR(princ_ref.unwrap_or_default()),
-                NEGOTIATE,
+                mech,
                 Usage::to_usage(),
                 None,
                 None,

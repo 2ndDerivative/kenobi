@@ -8,6 +8,7 @@ pub mod server;
 pub mod sign_encrypt;
 
 const NEGOTIATE: PCWSTR = w!("Negotiate");
+const KERBEROS: PCWSTR = w!("Kerberos");
 
 fn to_wide(s: &str) -> Box<[u16]> {
     s.chars()
