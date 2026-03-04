@@ -1,10 +1,11 @@
 [package]
 name = "kenobi-unix"
 version = "0.1.0"
-description = "Client built on libgssapi"
+description = "Negotiate/Kerberos client library built on libgssapi-sys"
 authors.workspace = true
-edition.workspace = true
 license.workspace = true
+edition.workspace = true
+repository.workspace = true
 
 [dependencies]
 kenobi-core = { version = "0.1.0", path = "../kenobi-core" }

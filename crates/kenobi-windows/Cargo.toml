@@ -1,11 +1,12 @@
 [package]
 name = "kenobi-windows"
-description = "A Windows Negotiate implementation."
 version = "0.1.0"
-edition.workspace = true
+description = "A Windows Negotiate implementation."
 authors.workspace = true
-keywords = ["windows", "sspi", "kerberos", "ntlm"]
 license.workspace = true
+keywords = ["windows", "sspi", "kerberos", "ntlm"]
+edition.workspace = true
+repository.workspace = true
 
 [dependencies]
 kenobi-core = { version = "0.1.0", path = "../kenobi-core" }

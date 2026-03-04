@@ -1,12 +1,12 @@
 [package]
 name = "kenobi"
 version.workspace = true
-authors.workspace = true
 description = "A cross-plattform Negotiate client implementation."
-keywords.workspace = true
+authors.workspace = true
 license.workspace = true
-repository = "https://github.com/2ndDerivative/kenobi"
+keywords.workspace = true
 edition.workspace = true
+repository.workspace = true
 
 [dependencies]
 kenobi-core = { version = "0.1.0", path = "../kenobi-core" }
