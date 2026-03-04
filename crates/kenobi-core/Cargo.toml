@@ -2,6 +2,7 @@
 description = "Common markers and types for kenobi"
 name = "kenobi-core"
 version = "0.1.0"
+authors.workspace = true
 license.workspace = true
 edition.workspace = true
 
