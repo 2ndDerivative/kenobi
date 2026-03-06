@@ -122,7 +122,6 @@ impl<Usage: CredentialsUsage> Credentials<Usage> {
         };
         let expiry = windows_timestamp_to_system_time(expiry_ticks);
         let valid_until = Instant::now() + expiry.duration_since(SystemTime::now()).unwrap_or(Duration::ZERO);
-        dbg!(valid_until);
         match res {
             Ok(()) => {
                 let handle = unsafe { CredentialsHandle::pick_up(handle) };
