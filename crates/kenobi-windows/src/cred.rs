@@ -1,4 +1,7 @@
-use std::marker::PhantomData;
+use std::{
+    marker::PhantomData,
+    time::{Duration, Instant},
+};
 
 use crate::{KERBEROS, NEGOTIATE, cred::handle::CredentialsHandle};
 pub use kenobi_core::cred::usage::{Both, Inbound, Outbound};
@@ -74,6 +77,7 @@ mod handle {
 
 pub struct Credentials<Usage> {
     handle: handle::CredentialsHandle,
+    valid_until: Instant,
     _usage: PhantomData<Usage>,
 }
 impl<Usage: CredentialsUsage> Credentials<Usage> {
@@ -88,7 +92,7 @@ impl<Usage: CredentialsUsage> Credentials<Usage> {
     }
     fn acquire(principal: Option<&str>, mech: PCWSTR) -> Result<Credentials<Usage>, Error> {
         let mut handle = SecHandle::default();
-        let mut _valid_seconds = 0;
+        let mut valid_seconds = 0;
         let princ_wide = principal.map(crate::to_wide);
         let princ_ref = princ_wide.as_ref().map(|b| b.as_ptr());
         let res = unsafe {
@@ -101,19 +105,24 @@ impl<Usage: CredentialsUsage> Credentials<Usage> {
                 None,
                 None,
                 &mut handle,
-                Some(&mut _valid_seconds),
+                Some(&mut valid_seconds),
             )
         };
+        let valid_until = Instant::now() + Duration::from_secs(valid_seconds.try_into().unwrap_or(0));
         match res {
             Ok(()) => {
                 let handle = unsafe { CredentialsHandle::pick_up(handle) };
                 Ok(Self {
                     handle,
+                    valid_until,
                     _usage: PhantomData,
                 })
             }
             Err(e) => Err(Error(e)),
         }
+    }
+    pub fn valid_until(&self) -> Instant {
+        self.valid_until
     }
 }
 impl Credentials<Inbound> {
@@ -166,17 +175,27 @@ impl CredentialsUsage for Both {
     }
 }
 impl From<Credentials<Both>> for Credentials<Inbound> {
-    fn from(value: Credentials<Both>) -> Self {
+    fn from(
         Credentials {
-            handle: value.handle,
+            handle, valid_until, ..
+        }: Credentials<Both>,
+    ) -> Self {
+        Credentials {
+            valid_until,
+            handle,
             _usage: PhantomData,
         }
     }
 }
 impl From<Credentials<Both>> for Credentials<Outbound> {
-    fn from(value: Credentials<Both>) -> Self {
+    fn from(
         Credentials {
-            handle: value.handle,
+            handle, valid_until, ..
+        }: Credentials<Both>,
+    ) -> Self {
+        Credentials {
+            valid_until,
+            handle,
             _usage: PhantomData,
         }
     }

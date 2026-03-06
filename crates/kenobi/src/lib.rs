@@ -2,7 +2,7 @@ pub mod client;
 pub mod sign_encrypt;
 
 pub mod cred {
-    use std::marker::PhantomData;
+    use std::{marker::PhantomData, time::Instant};
 
     pub use kenobi_core::cred::usage::{Both, Inbound, InboundUsable, Outbound, OutboundUsable};
     #[cfg(unix)]
@@ -52,6 +52,9 @@ pub mod cred {
                 inner,
                 _marker: PhantomData,
             })
+        }
+        pub fn valid_until(&self) -> Instant {
+            self.inner.valid_until()
         }
     }
     impl Credentials<Outbound> {
