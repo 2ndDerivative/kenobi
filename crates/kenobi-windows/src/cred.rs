@@ -122,7 +122,7 @@ impl<Usage: CredentialsUsage> Credentials<Usage> {
         }
     }
     pub fn valid_until(&self) -> Instant {
-        self.valid_until
+        todo!()
     }
 }
 impl Credentials<Inbound> {
