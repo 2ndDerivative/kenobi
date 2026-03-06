@@ -1,7 +1,19 @@
 use std::{
     marker::PhantomData,
-    time::{Duration, Instant},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
+
+const WINDOWS_TICKS_PER_SEC: u64 = 10_000_000;
+const UNIX_EPOCH_IN_WINDOWS_TICKS: u64 = 11644473600 * WINDOWS_TICKS_PER_SEC;
+
+fn windows_timestamp_to_system_time(windows_ticks: i64) -> SystemTime {
+    let ticks_since_1601 = windows_ticks as u64;
+    let ticks_since_1970 = ticks_since_1601.saturating_sub(UNIX_EPOCH_IN_WINDOWS_TICKS);
+
+    let secs = ticks_since_1970 / WINDOWS_TICKS_PER_SEC;
+    let nanos = ((ticks_since_1970 % WINDOWS_TICKS_PER_SEC) * 100) as u32;
+    UNIX_EPOCH + Duration::new(secs, nanos)
+}
 
 use crate::{KERBEROS, NEGOTIATE, cred::handle::CredentialsHandle};
 pub use kenobi_core::cred::usage::{Both, Inbound, Outbound};
@@ -92,7 +104,7 @@ impl<Usage: CredentialsUsage> Credentials<Usage> {
     }
     fn acquire(principal: Option<&str>, mech: PCWSTR) -> Result<Credentials<Usage>, Error> {
         let mut handle = SecHandle::default();
-        let mut valid_seconds = 0;
+        let mut expiry_ticks = 0;
         let princ_wide = principal.map(crate::to_wide);
         let princ_ref = princ_wide.as_ref().map(|b| b.as_ptr());
         let res = unsafe {
@@ -105,10 +117,12 @@ impl<Usage: CredentialsUsage> Credentials<Usage> {
                 None,
                 None,
                 &mut handle,
-                Some(&mut valid_seconds),
+                Some(&mut expiry_ticks),
             )
         };
-        let valid_until = Instant::now() + Duration::from_secs(valid_seconds.try_into().unwrap_or(0));
+        let expiry = windows_timestamp_to_system_time(expiry_ticks);
+        let valid_until = Instant::now() + expiry.duration_since(SystemTime::now()).unwrap_or(Duration::ZERO);
+        dbg!(valid_until);
         match res {
             Ok(()) => {
                 let handle = unsafe { CredentialsHandle::pick_up(handle) };
@@ -122,7 +136,7 @@ impl<Usage: CredentialsUsage> Credentials<Usage> {
         }
     }
     pub fn valid_until(&self) -> Instant {
-        todo!()
+        self.valid_until
     }
 }
 impl Credentials<Inbound> {
