@@ -1,4 +1,19 @@
-use std::marker::PhantomData;
+use std::{
+    marker::PhantomData,
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+};
+
+const WINDOWS_TICKS_PER_SEC: u64 = 10_000_000;
+const UNIX_EPOCH_IN_WINDOWS_TICKS: u64 = 11644473600 * WINDOWS_TICKS_PER_SEC;
+
+fn windows_timestamp_to_system_time(windows_ticks: i64) -> SystemTime {
+    let ticks_since_1601 = windows_ticks as u64;
+    let ticks_since_1970 = ticks_since_1601.saturating_sub(UNIX_EPOCH_IN_WINDOWS_TICKS);
+
+    let secs = ticks_since_1970 / WINDOWS_TICKS_PER_SEC;
+    let nanos = ((ticks_since_1970 % WINDOWS_TICKS_PER_SEC) * 100) as u32;
+    UNIX_EPOCH + Duration::new(secs, nanos)
+}
 
 use crate::{KERBEROS, NEGOTIATE, cred::handle::CredentialsHandle};
 pub use kenobi_core::cred::usage::{Both, Inbound, Outbound};
@@ -74,6 +89,7 @@ mod handle {
 
 pub struct Credentials<Usage> {
     handle: handle::CredentialsHandle,
+    valid_until: Instant,
     _usage: PhantomData<Usage>,
 }
 impl<Usage: CredentialsUsage> Credentials<Usage> {
@@ -88,7 +104,7 @@ impl<Usage: CredentialsUsage> Credentials<Usage> {
     }
     fn acquire(principal: Option<&str>, mech: PCWSTR) -> Result<Credentials<Usage>, Error> {
         let mut handle = SecHandle::default();
-        let mut _valid_seconds = 0;
+        let mut expiry_ticks = 0;
         let princ_wide = principal.map(crate::to_wide);
         let princ_ref = princ_wide.as_ref().map(|b| b.as_ptr());
         let res = unsafe {
@@ -101,19 +117,25 @@ impl<Usage: CredentialsUsage> Credentials<Usage> {
                 None,
                 None,
                 &mut handle,
-                Some(&mut _valid_seconds),
+                Some(&mut expiry_ticks),
             )
         };
+        let expiry = windows_timestamp_to_system_time(expiry_ticks);
+        let valid_until = Instant::now() + expiry.duration_since(SystemTime::now()).unwrap_or(Duration::ZERO);
         match res {
             Ok(()) => {
                 let handle = unsafe { CredentialsHandle::pick_up(handle) };
                 Ok(Self {
                     handle,
+                    valid_until,
                     _usage: PhantomData,
                 })
             }
             Err(e) => Err(Error(e)),
         }
+    }
+    pub fn valid_until(&self) -> Instant {
+        self.valid_until
     }
 }
 impl Credentials<Inbound> {
@@ -166,17 +188,27 @@ impl CredentialsUsage for Both {
     }
 }
 impl From<Credentials<Both>> for Credentials<Inbound> {
-    fn from(value: Credentials<Both>) -> Self {
+    fn from(
         Credentials {
-            handle: value.handle,
+            handle, valid_until, ..
+        }: Credentials<Both>,
+    ) -> Self {
+        Credentials {
+            valid_until,
+            handle,
             _usage: PhantomData,
         }
     }
 }
 impl From<Credentials<Both>> for Credentials<Outbound> {
-    fn from(value: Credentials<Both>) -> Self {
+    fn from(
         Credentials {
-            handle: value.handle,
+            handle, valid_until, ..
+        }: Credentials<Both>,
+    ) -> Self {
+        Credentials {
+            valid_until,
+            handle,
             _usage: PhantomData,
         }
     }
