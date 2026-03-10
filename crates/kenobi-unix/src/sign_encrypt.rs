@@ -53,7 +53,7 @@ impl<CU, C, E, D> ClientContext<'_, CU, C, E, D> {
         if let Some(major) = Error::gss(unsafe {
             gss_unwrap(
                 &mut minor,
-                std::ptr::from_ref(&self.context) as *mut gss_ctx_id_struct,
+                self.context.as_ptr() as *mut gss_ctx_id_struct,
                 &mut input_buffer_desc,
                 &mut output_buffer,
                 &mut conf_state,

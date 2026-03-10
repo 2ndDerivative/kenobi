@@ -20,6 +20,9 @@ impl ContextHandle {
     pub fn as_mut(&mut self) -> *mut gss_ctx_id_struct {
         self.0.as_ptr()
     }
+    pub fn as_ptr(&self) -> *const gss_ctx_id_struct {
+        self.0.as_ptr() as *const gss_ctx_id_struct
+    }
     pub fn session_key(&self) -> Result<SessionKey, Error> {
         let mut minor = 0;
         let mut buffer_set: *mut gss_buffer_set_desc_struct = std::ptr::null_mut();
