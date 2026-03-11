@@ -28,6 +28,12 @@ impl Signature {
         self.unix.as_slice()
     }
 }
+impl std::ops::Deref for Signature {
+    type Target = [u8];
+    fn deref(&self) -> &Self::Target {
+        self.as_slice()
+    }
+}
 
 #[derive(Debug)]
 pub struct WrapError {
