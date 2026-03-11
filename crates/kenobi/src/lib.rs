@@ -41,6 +41,15 @@ pub mod cred {
         pub(crate) inner: Arc<UnixCred<Usage>>,
         _marker: PhantomData<Usage>,
     }
+    // Necessary because Usage isn't part of the cloneability
+    impl<U> Clone for Credentials<U> {
+        fn clone(&self) -> Self {
+            Self {
+                inner: self.inner.clone(),
+                _marker: PhantomData,
+            }
+        }
+    }
     impl<Usage: CredentialsUsage + OutboundUsable> Credentials<Usage> {
         /// Grab the default credentials handle for a given principal (or the default user principal)
         ///
