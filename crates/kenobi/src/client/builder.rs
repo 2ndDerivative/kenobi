@@ -4,13 +4,13 @@ use crate::{client::StepOut, cred::Credentials};
 
 /// A Builder to setup a signing and encryption policy for a client context.
 /// finish setting up with `ClientBuilder::initialize`
-pub struct ClientBuilder<'cred, Usage> {
+pub struct ClientBuilder<Usage> {
     #[cfg(windows)]
-    inner: kenobi_windows::client::ClientBuilder<'cred, Usage>,
+    inner: kenobi_windows::client::ClientBuilder<Usage>,
     #[cfg(unix)]
-    inner: kenobi_unix::client::ClientBuilder<'cred, Usage>,
+    inner: kenobi_unix::client::ClientBuilder<Usage>,
 }
-impl<'cred, Usage> ClientBuilder<'cred, Usage> {
+impl<Usage> ClientBuilder<Usage> {
     pub fn bind_to_channel<C: Channel>(self, channel: &C) -> Result<Self, C::Error> {
         let inner = self.inner.bind_to_channel(channel)?;
         Ok(Self { inner })
@@ -18,30 +18,24 @@ impl<'cred, Usage> ClientBuilder<'cred, Usage> {
 }
 
 #[cfg(windows)]
-impl<Usage> ClientBuilder<'_, Usage> {
+impl<Usage> ClientBuilder<Usage> {
     #[must_use]
-    pub fn new_from_credentials<'cred>(
-        cred: &'cred Credentials<Usage>,
-        target_principal: Option<&str>,
-    ) -> ClientBuilder<'cred, Usage> {
-        let inner = kenobi_windows::client::ClientBuilder::new_from_credentials(&cred.inner, target_principal);
+    pub fn new_from_credentials(cred: Credentials<Usage>, target_principal: Option<&str>) -> ClientBuilder<Usage> {
+        let inner = kenobi_windows::client::ClientBuilder::new_from_credentials(cred.inner, target_principal);
         ClientBuilder { inner }
     }
 }
 
 #[cfg(unix)]
-impl<Usage: OutboundUsable> ClientBuilder<'_, Usage> {
+impl<Usage: OutboundUsable> ClientBuilder<Usage> {
     #[must_use]
-    pub fn new_from_credentials<'cred>(
-        cred: &'cred Credentials<Usage>,
-        target_principal: Option<&str>,
-    ) -> ClientBuilder<'cred, Usage> {
-        let inner = kenobi_unix::client::ClientBuilder::new(&cred.inner, target_principal).unwrap();
+    pub fn new_from_credentials(cred: Credentials<Usage>, target_principal: Option<&str>) -> ClientBuilder<Usage> {
+        let inner = kenobi_unix::client::ClientBuilder::new(cred.inner, target_principal).unwrap();
         ClientBuilder { inner }
     }
 }
 
-impl<'cred, Usage> ClientBuilder<'cred, Usage> {
+impl<Usage> ClientBuilder<Usage> {
     #[must_use]
     pub fn offer_mutual_auth(self) -> Self {
         let inner = { self.inner.offer_mutual_auth() };
@@ -65,17 +59,17 @@ impl<'cred, Usage> ClientBuilder<'cred, Usage> {
 }
 
 #[cfg(windows)]
-impl<'cred, Usage: OutboundUsable> ClientBuilder<'cred, Usage> {
+impl<Usage: OutboundUsable> ClientBuilder<Usage> {
     #[must_use]
-    pub fn initialize(self) -> StepOut<'cred, Usage> {
+    pub fn initialize(self) -> StepOut<Usage> {
         StepOut::from_windows(self.inner.initialize().unwrap())
     }
 }
 
 #[cfg(unix)]
-impl<'cred, Usage: OutboundUsable> ClientBuilder<'cred, Usage> {
+impl<Usage: OutboundUsable> ClientBuilder<Usage> {
     #[must_use]
-    pub fn initialize(self) -> StepOut<'cred, Usage> {
+    pub fn initialize(self) -> StepOut<Usage> {
         StepOut::from_unix(self.inner.initialize().unwrap())
     }
 }

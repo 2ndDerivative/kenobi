@@ -34,28 +34,23 @@ use kenobi_core::typestate::{
 };
 pub use typestate::{DelegationPolicy, EncryptionPolicy, SignPolicy};
 
-pub struct ClientContext<'cred, CU, S, E, D> {
+pub struct ClientContext<CU, S, E, D> {
     attributes: u32,
-    cred: &'cred Credentials<CU>,
+    cred: Arc<Credentials<CU>>,
     pub(crate) context: ContextHandle,
     next_token: Option<Token>,
     marker: PhantomData<(S, E, D)>,
 }
 
-impl<CU: OutboundUsable> ClientContext<'_, CU, NoSigning, NoEncryption, NoDelegation> {
+impl<CU: OutboundUsable> ClientContext<CU, NoSigning, NoEncryption, NoDelegation> {
     #[allow(clippy::new_ret_no_self)]
-    pub fn new<'cred>(
-        cred: &'cred Credentials<CU>,
-        target_principal: Option<&str>,
-    ) -> Result<StepOut<'cred, CU>, Error> {
+    pub fn new<CU>(cred: Arc<Credentials<CU>>, target_principal: Option<&str>) -> Result<StepOut<CU>, Error> {
         ClientBuilder::new(cred, target_principal)?.initialize()
     }
 }
-impl<'cred, CU, E, D> ClientContext<'cred, CU, MaybeSigning, E, D> {
+impl<CU, E, D> ClientContext<CU, MaybeSigning, E, D> {
     #[allow(clippy::type_complexity)]
-    pub fn check_signing(
-        self,
-    ) -> Result<ClientContext<'cred, CU, Signing, E, D>, ClientContext<'cred, CU, NoSigning, E, D>> {
+    pub fn check_signing(self) -> Result<ClientContext<CU, Signing, E, D>, ClientContext<CU, NoSigning, E, D>> {
         if self.attributes & MaybeSigning::REQUESTED_FLAGS != 0 {
             Ok(self.change_policy())
         } else {
@@ -63,11 +58,11 @@ impl<'cred, CU, E, D> ClientContext<'cred, CU, MaybeSigning, E, D> {
         }
     }
 }
-impl<'cred, CU, S, D> ClientContext<'cred, CU, S, MaybeEncryption, D> {
+impl<CU, S, D> ClientContext<CU, S, MaybeEncryption, D> {
     #[allow(clippy::type_complexity)]
     pub fn check_encryption(
         self,
-    ) -> Result<ClientContext<'cred, CU, S, Encryption, D>, ClientContext<'cred, CU, S, NoEncryption, D>> {
+    ) -> Result<ClientContext<CU, S, Encryption, D>, ClientContext<CU, S, NoEncryption, D>> {
         if self.attributes & MaybeEncryption::REQUESTED_FLAGS != 0 {
             Ok(self.change_policy())
         } else {
@@ -75,11 +70,11 @@ impl<'cred, CU, S, D> ClientContext<'cred, CU, S, MaybeEncryption, D> {
         }
     }
 }
-impl<'cred, CU, S, E> ClientContext<'cred, CU, S, E, MaybeDelegation> {
+impl<CU, S, E> ClientContext<CU, S, E, MaybeDelegation> {
     #[allow(clippy::type_complexity)]
     pub fn check_delegation(
         self,
-    ) -> Result<ClientContext<'cred, CU, S, E, Delegation>, ClientContext<'cred, CU, S, E, NoDelegation>> {
+    ) -> Result<ClientContext<CU, S, E, Delegation>, ClientContext<CU, S, E, NoDelegation>> {
         if self.attributes & MaybeDelegation::REQUESTED_FLAGS != 0 {
             Ok(self.change_policy())
         } else {
@@ -87,8 +82,8 @@ impl<'cred, CU, S, E> ClientContext<'cred, CU, S, E, MaybeDelegation> {
         }
     }
 }
-impl<'cred, CU, S1, E1, D1> ClientContext<'cred, CU, S1, E1, D1> {
-    fn change_policy<S2, E2, D2>(self) -> ClientContext<'cred, CU, S2, E2, D2> {
+impl<CU, S1, E1, D1> ClientContext<CU, S1, E1, D1> {
+    fn change_policy<S2, E2, D2>(self) -> ClientContext<CU, S2, E2, D2> {
         ClientContext {
             attributes: self.attributes,
             cred: self.cred,
@@ -105,9 +100,9 @@ impl<'cred, CU, S1, E1, D1> ClientContext<'cred, CU, S1, E1, D1> {
     }
 }
 
-pub struct PendingClientContext<'cred, CU> {
+pub struct PendingClientContext<CU> {
     context: ContextHandle,
-    cred: &'cred Credentials<CU>,
+    cred: Arc<Credentials<CU>>,
     next_token: token::Token,
     flags: CapabilityFlags,
     target_principal: Option<NameHandle>,
@@ -116,8 +111,8 @@ pub struct PendingClientContext<'cred, CU> {
     #[expect(dead_code)]
     valid_until: Instant,
 }
-impl<'cred, CU: OutboundUsable> PendingClientContext<'cred, CU> {
-    pub fn step(self, token: &[u8]) -> Result<StepOut<'cred, CU>, Error> {
+impl<CU: OutboundUsable> PendingClientContext<CU> {
+    pub fn step(self, token: &[u8]) -> Result<StepOut<CU>, Error> {
         step(
             Some(self.context),
             self.cred,
@@ -129,7 +124,7 @@ impl<'cred, CU: OutboundUsable> PendingClientContext<'cred, CU> {
         )
     }
 }
-impl<CU> PendingClientContext<'_, CU> {
+impl<CU> PendingClientContext<CU> {
     pub fn next_token(&self) -> &[u8] {
         self.next_token.as_slice()
     }
@@ -142,15 +137,15 @@ fn empty_token() -> gss_buffer_desc {
     }
 }
 
-fn step<'cred, CU: OutboundUsable>(
+fn step<CU: OutboundUsable>(
     mut ctx: Option<ContextHandle>,
-    cred: &'cred Credentials<CU>,
+    cred: Arc<Credentials<CU>>,
     flags: CapabilityFlags,
     mut target_principal: Option<NameHandle>,
     token: Option<&[u8]>,
     requested_duration: Option<Duration>,
     channel_bindings: Option<Box<[u8]>>,
-) -> Result<StepOut<'cred, CU>, Error> {
+) -> Result<StepOut<CU>, Error> {
     let mut ctx_ptr = ctx.as_mut().map(ContextHandle::as_mut).unwrap_or_default();
     let mut minor_status = 0;
     let mut remaining_seconds = 0;
@@ -219,9 +214,9 @@ fn step<'cred, CU: OutboundUsable>(
     }
 }
 
-pub enum StepOut<'cred, CU> {
-    Pending(PendingClientContext<'cred, CU>),
-    Finished(ClientContext<'cred, CU, MaybeSigning, MaybeEncryption, MaybeDelegation>),
+pub enum StepOut<CU> {
+    Pending(PendingClientContext<CU>),
+    Finished(ClientContext<CU, MaybeSigning, MaybeEncryption, MaybeDelegation>),
 }
 
 mod token {

@@ -2,6 +2,8 @@ pub mod client;
 pub mod sign_encrypt;
 
 pub mod cred {
+    #[cfg(windows)]
+    use std::sync::Arc;
     use std::{marker::PhantomData, time::Instant};
 
     pub use kenobi_core::cred::usage::{Both, Inbound, InboundUsable, Outbound, OutboundUsable};
@@ -34,9 +36,9 @@ pub mod cred {
     /// A GSSAPI credentials handle
     pub struct Credentials<Usage> {
         #[cfg(windows)]
-        pub(crate) inner: WinCred<Usage>,
+        pub(crate) inner: Arc<WinCred<Usage>>,
         #[cfg(unix)]
-        pub(crate) inner: UnixCred<Usage>,
+        pub(crate) inner: Arc<UnixCred<Usage>>,
         _marker: PhantomData<Usage>,
     }
     impl<Usage: CredentialsUsage + OutboundUsable> Credentials<Usage> {
@@ -49,7 +51,7 @@ pub mod cred {
             #[cfg(unix)]
             let inner = UnixCred::new(principal, None).map_err(|unix| CredentialsError { unix })?;
             Ok(Self {
-                inner,
+                inner: Arc::new(inner),
                 _marker: PhantomData,
             })
         }

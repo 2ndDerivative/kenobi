@@ -3,6 +3,7 @@ use kenobi_core::flags::CapabilityFlags;
 use kenobi_core::typestate::{
     Encryption, MaybeDelegation, MaybeEncryption, MaybeSigning, NoDelegation, NoEncryption, NoSigning, Signing,
 };
+use std::sync::Arc;
 use std::{ffi::c_void, marker::PhantomData};
 use windows::Win32::Security::Authentication::Identity::{
     ISC_REQ_CONFIDENTIALITY, ISC_REQ_DELEGATE, ISC_REQ_INTEGRITY, ISC_REQ_NO_INTEGRITY,
@@ -37,14 +38,14 @@ pub use builder::ClientBuilder;
 pub use error::InitializeContextError;
 pub use typestate::{DelegationPolicy, EncryptionPolicy, SigningPolicy};
 
-pub struct ClientContext<'cred, Usage, S = NoSigning, E = NoEncryption, D = NoDelegation> {
+pub struct ClientContext<Usage, S = NoSigning, E = NoEncryption, D = NoDelegation> {
     attributes: u32,
-    cred: &'cred Credentials<Usage>,
+    cred: Arc<Credentials<Usage>>,
     context: ContextHandle,
     token_buffer: NonResizableVec,
     _enc: PhantomData<(S, E, D)>,
 }
-impl<Usage, S, E, D> ClientContext<'_, Usage, S, E, D> {
+impl<Usage, S, E, D> ClientContext<Usage, S, E, D> {
     pub fn is_mutually_authenticated(&self) -> bool {
         self.attributes & ISC_RET_MUTUAL_AUTH != 0
     }
@@ -66,7 +67,7 @@ impl<Usage, S, E, D> ClientContext<'_, Usage, S, E, D> {
         unsafe { Ok(SessionKey::new(key)) }
     }
 }
-impl<Usage, E, D> ClientContext<'_, Usage, Signing, E, D> {
+impl<Usage, E, D> ClientContext<Usage, Signing, E, D> {
     pub fn sign(&self, message: &[u8]) -> Result<Signature, WrapError> {
         self.context.wrap_sign(message).map_err(WrapError)
     }
@@ -74,23 +75,22 @@ impl<Usage, E, D> ClientContext<'_, Usage, Signing, E, D> {
         self.context.unwrap(message)
     }
 }
-impl<Usage, D> ClientContext<'_, Usage, Signing, Encryption, D> {
+impl<Usage, D> ClientContext<Usage, Signing, Encryption, D> {
     pub fn encrypt(&self, message: &[u8]) -> Result<Encrypted, WrapError> {
         self.context.wrap_encrypt(message).map_err(WrapError)
     }
 }
-impl<Usage: OutboundUsable> ClientContext<'_, Usage, NoSigning, NoEncryption, NoDelegation> {
-    pub fn new_from_cred<'cred>(
-        cred: &'cred Credentials<Usage>,
+impl<Usage: OutboundUsable> ClientContext<Usage, NoSigning, NoEncryption, NoDelegation> {
+    pub fn new_from_cred(
+        cred: Arc<Credentials<Usage>>,
         target_principal: Option<&str>,
-    ) -> Result<StepOut<'cred, Usage>, InitializeContextError> {
+    ) -> Result<StepOut<Usage>, InitializeContextError> {
         ClientBuilder::new_from_credentials(cred, target_principal).initialize()
     }
 }
-type CheckSignResult<'cred, Usage, E, D> =
-    Result<ClientContext<'cred, Usage, Signing, E, D>, ClientContext<'cred, Usage, NoSigning, E, D>>;
-impl<'cred, Usage, E, D> ClientContext<'cred, Usage, MaybeSigning, E, D> {
-    pub fn check_signing(self) -> CheckSignResult<'cred, Usage, E, D> {
+type CheckSignResult<Usage, E, D> = Result<ClientContext<Usage, Signing, E, D>, ClientContext<Usage, NoSigning, E, D>>;
+impl<Usage, E, D> ClientContext<Usage, MaybeSigning, E, D> {
+    pub fn check_signing(self) -> CheckSignResult<Usage, E, D> {
         if <MaybeSigning as typestate::signing::Sealed>::requirements_met_manual(self.attributes) {
             Ok(self.convert_policy())
         } else {
@@ -98,10 +98,10 @@ impl<'cred, Usage, E, D> ClientContext<'cred, Usage, MaybeSigning, E, D> {
         }
     }
 }
-type CheckEncryptionResult<'cred, Usage, S, D> =
-    Result<ClientContext<'cred, Usage, S, Encryption, D>, ClientContext<'cred, Usage, S, NoEncryption, D>>;
-impl<'cred, Usage, S, D> ClientContext<'cred, Usage, S, MaybeEncryption, D> {
-    pub fn check_encryption(self) -> CheckEncryptionResult<'cred, Usage, S, D> {
+type CheckEncryptionResult<Usage, S, D> =
+    Result<ClientContext<Usage, S, Encryption, D>, ClientContext<Usage, S, NoEncryption, D>>;
+impl<Usage, S, D> ClientContext<Usage, S, MaybeEncryption, D> {
+    pub fn check_encryption(self) -> CheckEncryptionResult<Usage, S, D> {
         if <MaybeEncryption as typestate::encryption::Sealed>::requirements_met_manual(self.attributes) {
             Ok(self.convert_policy())
         } else {
@@ -109,8 +109,8 @@ impl<'cred, Usage, S, D> ClientContext<'cred, Usage, S, MaybeEncryption, D> {
         }
     }
 }
-impl<'cred, Usage, S1, E1, D1> ClientContext<'cred, Usage, S1, E1, D1> {
-    fn convert_policy<S2, E2, D2>(self) -> ClientContext<'cred, Usage, S2, E2, D2> {
+impl<Usage, S1, E1, D1> ClientContext<Usage, S1, E1, D1> {
+    fn convert_policy<S2, E2, D2>(self) -> ClientContext<Usage, S2, E2, D2> {
         let ClientContext {
             attributes,
             cred,
@@ -128,16 +128,16 @@ impl<'cred, Usage, S1, E1, D1> ClientContext<'cred, Usage, S1, E1, D1> {
     }
 }
 
-pub struct PendingClientContext<'cred, Usage> {
+pub struct PendingClientContext<Usage> {
     target_spn: Option<Box<[u16]>>,
-    cred: &'cred Credentials<Usage>,
+    cred: Arc<Credentials<Usage>>,
     context: ContextHandle,
     flags: CapabilityFlags,
     token_buffer: NonResizableVec,
     attributes: u32,
 }
-impl<'cred, Usage: OutboundUsable> PendingClientContext<'cred, Usage> {
-    pub fn step(self, token: &[u8]) -> Result<StepOut<'cred, Usage>, InitializeContextError> {
+impl<Usage: OutboundUsable> PendingClientContext<Usage> {
+    pub fn step(self, token: &[u8]) -> Result<StepOut<Usage>, InitializeContextError> {
         step(
             self.cred,
             self.target_spn,
@@ -150,7 +150,7 @@ impl<'cred, Usage: OutboundUsable> PendingClientContext<'cred, Usage> {
         )
     }
 }
-impl<Usage> PendingClientContext<'_, Usage> {
+impl<Usage> PendingClientContext<Usage> {
     pub fn next_token(&self) -> &[u8] {
         assert!(
             !self.token_buffer.is_empty(),
@@ -161,8 +161,8 @@ impl<Usage> PendingClientContext<'_, Usage> {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn step<'cred, Usage: OutboundUsable>(
-    cred: &'cred Credentials<Usage>,
+fn step<Usage: OutboundUsable>(
+    cred: Arc<Credentials<Usage>>,
     target_spn: Option<Box<[u16]>>,
     context: Option<ContextHandle>,
     flags: CapabilityFlags,
@@ -170,7 +170,7 @@ fn step<'cred, Usage: OutboundUsable>(
     mut token_buffer: NonResizableVec,
     channel_bindings: Option<&[u8]>,
     in_token: Option<&[u8]>,
-) -> Result<StepOut<'cred, Usage>, InitializeContextError> {
+) -> Result<StepOut<Usage>, InitializeContextError> {
     token_buffer.resize_max();
 
     let mut out_token_buffer = token_buffer.sec_buffer(SECBUFFER_TOKEN);
@@ -301,7 +301,7 @@ fn convert_flags(flags: CapabilityFlags) -> ISC_REQ_FLAGS {
     out_flags
 }
 
-pub enum StepOut<'cred, Usage> {
-    Pending(PendingClientContext<'cred, Usage>),
-    Completed(ClientContext<'cred, Usage, MaybeSigning, MaybeEncryption, MaybeDelegation>),
+pub enum StepOut<Usage> {
+    Pending(PendingClientContext<Usage>),
+    Completed(ClientContext<Usage, MaybeSigning, MaybeEncryption, MaybeDelegation>),
 }

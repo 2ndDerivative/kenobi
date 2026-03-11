@@ -10,18 +10,15 @@ use crate::{
     name::NameHandle,
 };
 
-pub struct ClientBuilder<'cred, CU> {
-    cred: &'cred Credentials<CU>,
+pub struct ClientBuilder<CU> {
+    cred: Arc<Credentials<CU>>,
     target_principal: Option<NameHandle>,
     flags: CapabilityFlags,
     requested_duration: Option<Duration>,
     channel_bindings: Option<Box<[u8]>>,
 }
-impl<CU: OutboundUsable> ClientBuilder<'_, CU> {
-    pub fn new<'cred>(
-        cred: &'cred Credentials<CU>,
-        target_principal: Option<&str>,
-    ) -> Result<ClientBuilder<'cred, CU>, Error> {
+impl<CU: OutboundUsable> ClientBuilder<CU> {
+    pub fn new(cred: Arc<Credentials<CU>>, target_principal: Option<&str>) -> Result<ClientBuilder<CU>, Error> {
         let target_principal = target_principal
             .map(|t| unsafe { NameHandle::import(t, GSS_C_NT_USER_NAME) })
             .transpose()?;
@@ -34,7 +31,7 @@ impl<CU: OutboundUsable> ClientBuilder<'_, CU> {
         })
     }
 }
-impl<'cred, CU> ClientBuilder<'cred, CU> {
+impl<CU> ClientBuilder<CU> {
     pub fn with_flag(mut self, flags: CapabilityFlags) -> Self {
         self.flags.add_flag(flags);
         self
@@ -65,8 +62,8 @@ impl<'cred, CU> ClientBuilder<'cred, CU> {
         })
     }
 }
-impl<'cred, CU: OutboundUsable> ClientBuilder<'cred, CU> {
-    pub fn initialize(self) -> Result<StepOut<'cred, CU>, Error> {
+impl<CU: OutboundUsable> ClientBuilder<CU> {
+    pub fn initialize(self) -> Result<StepOut<CU>, Error> {
         step(
             None,
             self.cred,

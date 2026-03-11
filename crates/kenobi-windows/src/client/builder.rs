@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::{
     buffer::NonResizableVec,
     client::{StepOut, error::InitializeContextError},
@@ -6,17 +8,14 @@ use crate::{
 use kenobi_core::flags::CapabilityFlags;
 use kenobi_core::{channel_bindings::Channel, cred::usage::OutboundUsable};
 
-pub struct ClientBuilder<'cred, Usage> {
-    cred: &'cred Credentials<Usage>,
+pub struct ClientBuilder<Usage> {
+    cred: Arc<Credentials<Usage>>,
     flags: CapabilityFlags,
     target_principal: Option<Box<[u16]>>,
     channel_bindings: Option<Box<[u8]>>,
 }
-impl<Usage> ClientBuilder<'_, Usage> {
-    pub fn new_from_credentials<'cred>(
-        cred: &'cred Credentials<Usage>,
-        target_principal: Option<&str>,
-    ) -> ClientBuilder<'cred, Usage> {
+impl<Usage> ClientBuilder<Usage> {
+    pub fn new_from_credentials(cred: Arc<Credentials<Usage>>, target_principal: Option<&str>) -> ClientBuilder<Usage> {
         let target_principal = target_principal.map(crate::to_wide);
         ClientBuilder {
             cred,
@@ -49,8 +48,8 @@ impl<Usage> ClientBuilder<'_, Usage> {
         })
     }
 }
-impl<'cred, Usage: OutboundUsable> ClientBuilder<'cred, Usage> {
-    pub fn initialize(self) -> Result<StepOut<'cred, Usage>, InitializeContextError> {
+impl<Usage: OutboundUsable> ClientBuilder<Usage> {
+    pub fn initialize(self) -> Result<StepOut<Usage>, InitializeContextError> {
         match super::step(
             self.cred,
             self.target_principal,

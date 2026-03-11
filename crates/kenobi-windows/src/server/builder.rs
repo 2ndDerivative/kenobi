@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::{
     buffer::NonResizableVec,
     cred::Credentials,
@@ -5,13 +7,13 @@ use crate::{
 };
 use kenobi_core::{channel_bindings::Channel, cred::usage::InboundUsable, flags::CapabilityFlags};
 
-pub struct ServerBuilder<'cred, Usage> {
-    cred: &'cred Credentials<Usage>,
+pub struct ServerBuilder<Usage> {
+    cred: Arc<Credentials<Usage>>,
     channel_bindings: Option<Box<[u8]>>,
     flags: CapabilityFlags,
 }
-impl<Usage> ServerBuilder<'_, Usage> {
-    pub fn new_from_credentials<'cred>(cred: &'cred Credentials<Usage>) -> ServerBuilder<'cred, Usage> {
+impl<Usage> ServerBuilder<Usage> {
+    pub fn new_from_credentials(cred: Arc<Credentials<Usage>>) -> ServerBuilder<Usage> {
         ServerBuilder {
             cred,
             channel_bindings: None,
@@ -42,8 +44,8 @@ impl<Usage> ServerBuilder<'_, Usage> {
         })
     }
 }
-impl<'cred, Usage: InboundUsable> ServerBuilder<'cred, Usage> {
-    pub fn initialize(self, token: &[u8]) -> Result<StepOut<'cred, Usage>, AcceptContextError> {
+impl<Usage: InboundUsable> ServerBuilder<Usage> {
+    pub fn initialize(self, token: &[u8]) -> Result<StepOut<Usage>, AcceptContextError> {
         super::step(
             self.cred,
             None,
