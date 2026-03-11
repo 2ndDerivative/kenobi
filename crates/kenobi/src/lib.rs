@@ -6,11 +6,14 @@ pub mod cred {
     use std::sync::Arc;
     use std::{marker::PhantomData, sync::Arc, time::Instant};
 
-    pub use kenobi_core::cred::usage::{Both, Inbound, InboundUsable, Outbound, OutboundUsable};
+    pub use kenobi_core::{
+        cred::usage::{Both, Inbound, InboundUsable, Outbound, OutboundUsable},
+        mech::Mechanism,
+    };
+    #[cfg(unix)]
+    use kenobi_unix::cred::Credentials as UnixCred;
     #[cfg(unix)]
     pub use kenobi_unix::cred::CredentialsUsage;
-    #[cfg(unix)]
-    use kenobi_unix::{Mechanism, cred::Credentials as UnixCred};
     #[cfg(windows)]
     use kenobi_windows::cred::Credentials as WinCred;
     #[cfg(windows)]

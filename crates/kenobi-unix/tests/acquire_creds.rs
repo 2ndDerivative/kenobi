@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use kenobi_unix::{
-    Mechanism,
     client::{ClientContext, StepOut},
     cred::Credentials,
+    mech::Mechanism,
 };
 
 #[test]

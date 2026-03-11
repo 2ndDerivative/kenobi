@@ -7,6 +7,7 @@ use std::ffi::c_void;
 
 pub use error::Error;
 use libgssapi_sys::gss_OID_desc;
+pub mod mech;
 mod name;
 pub mod sign_encrypt;
 
@@ -29,4 +30,3 @@ fn mech_spnego() -> gss_OID_desc {
 pub mod typestate {
     pub use kenobi_core::typestate::{Encryption, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, Signing};
 }
-pub use kenobi_core::mech::Mechanism;
