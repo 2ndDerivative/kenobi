@@ -43,21 +43,20 @@ impl<Usage: OutboundUsable> ClientBuilder<'_, Usage> {
 
 impl<'cred, Usage> ClientBuilder<'cred, Usage> {
     #[must_use]
+    pub fn offer_mutual_auth(self) -> Self {
+        let inner = { self.inner.offer_mutual_auth() };
+        ClientBuilder { inner }
+    }
+    #[must_use]
     pub fn request_signing(self) -> Self {
         let inner = { self.inner.request_signing() };
         ClientBuilder { inner }
     }
-}
-
-impl<'cred, Usage> ClientBuilder<'cred, Usage> {
     #[must_use]
     pub fn request_encryption(self) -> Self {
         let inner = { self.inner.request_encryption() };
         ClientBuilder { inner }
     }
-}
-
-impl<'cred, Usage> ClientBuilder<'cred, Usage> {
     #[must_use]
     pub fn request_delegation(self) -> Self {
         let inner = { self.inner.allow_delegation() };
