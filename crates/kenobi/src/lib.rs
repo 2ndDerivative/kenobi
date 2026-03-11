@@ -67,6 +67,9 @@ pub mod cred {
                 _marker: PhantomData,
             })
         }
+        pub fn mechanism(&self) -> Mechanism {
+            self.inner.mechanism()
+        }
         pub fn valid_until(&self) -> Instant {
             self.inner.valid_until()
         }

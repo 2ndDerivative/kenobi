@@ -19,6 +19,7 @@ use crate::{
 
 pub struct Credentials<Usage = Outbound> {
     pub(crate) cred_handle: NonNull<gss_cred_id_struct>,
+    mechanism: Mechanism,
     valid_until: Instant,
     _usage: PhantomData<Usage>,
 }
@@ -71,9 +72,13 @@ impl<Usage: CredentialsUsage> Credentials<Usage> {
         };
         Ok(Self {
             cred_handle,
+            mechanism,
             valid_until,
             _usage: PhantomData,
         })
+    }
+    pub fn mechanism(&self) -> Mechanism {
+        self.mechanism
     }
     pub fn valid_until(&self) -> Instant {
         self.valid_until

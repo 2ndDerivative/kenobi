@@ -90,6 +90,7 @@ mod handle {
 
 pub struct Credentials<Usage> {
     handle: handle::CredentialsHandle,
+    mechanism: Mechanism,
     valid_until: Instant,
     _usage: PhantomData<Usage>,
 }
@@ -132,12 +133,16 @@ impl<Usage: CredentialsUsage> Credentials<Usage> {
                 let handle = unsafe { CredentialsHandle::pick_up(handle) };
                 Ok(Self {
                     handle,
+                    mechanism,
                     valid_until,
                     _usage: PhantomData,
                 })
             }
             Err(e) => Err(Error(e)),
         }
+    }
+    pub fn mechanism(&self) -> Mechanism {
+        self.mechanism
     }
     pub fn valid_until(&self) -> Instant {
         self.valid_until
@@ -195,11 +200,15 @@ impl CredentialsUsage for Both {
 impl From<Credentials<Both>> for Credentials<Inbound> {
     fn from(
         Credentials {
-            handle, valid_until, ..
+            handle,
+            valid_until,
+            mechanism,
+            ..
         }: Credentials<Both>,
     ) -> Self {
         Credentials {
             valid_until,
+            mechanism,
             handle,
             _usage: PhantomData,
         }
@@ -208,11 +217,15 @@ impl From<Credentials<Both>> for Credentials<Inbound> {
 impl From<Credentials<Both>> for Credentials<Outbound> {
     fn from(
         Credentials {
-            handle, valid_until, ..
+            handle,
+            valid_until,
+            mechanism,
+            ..
         }: Credentials<Both>,
     ) -> Self {
         Credentials {
             valid_until,
+            mechanism,
             handle,
             _usage: PhantomData,
         }
