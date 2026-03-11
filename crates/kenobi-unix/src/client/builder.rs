@@ -1,73 +1,55 @@
-use std::{marker::PhantomData, time::Duration};
+use std::time::Duration;
 
-use kenobi_core::{
-    channel_bindings::Channel,
-    cred::usage::OutboundUsable,
-    typestate::{DeniedSigning, MaybeDelegation, MaybeEncryption, MaybeSigning, NoDelegation, NoEncryption, NoSigning},
-};
+use kenobi_core::{channel_bindings::Channel, cred::usage::OutboundUsable, flags::CapabilityFlags};
 use libgssapi_sys::GSS_C_NT_USER_NAME;
 
 use crate::{
     Error,
-    client::{
-        StepOut, step,
-        typestate::{DelegationPolicy, EncryptionPolicy, SignPolicy},
-    },
+    client::{StepOut, step},
     cred::Credentials,
     name::NameHandle,
 };
 
-pub struct ClientBuilder<'cred, CU, S, E, D> {
+pub struct ClientBuilder<'cred, CU> {
     cred: &'cred Credentials<CU>,
     target_principal: Option<NameHandle>,
+    flags: CapabilityFlags,
     requested_duration: Option<Duration>,
     channel_bindings: Option<Box<[u8]>>,
-    marker: PhantomData<(S, E, D)>,
 }
-impl<CU: OutboundUsable> ClientBuilder<'_, CU, NoSigning, NoEncryption, NoDelegation> {
+impl<CU: OutboundUsable> ClientBuilder<'_, CU> {
     pub fn new<'cred>(
         cred: &'cred Credentials<CU>,
         target_principal: Option<&str>,
-    ) -> Result<ClientBuilder<'cred, CU, NoSigning, NoEncryption, NoDelegation>, Error> {
+    ) -> Result<ClientBuilder<'cred, CU>, Error> {
         let target_principal = target_principal
             .map(|t| unsafe { NameHandle::import(t, GSS_C_NT_USER_NAME) })
             .transpose()?;
         Ok(ClientBuilder {
             cred,
             target_principal,
+            flags: CapabilityFlags::default(),
             requested_duration: None,
             channel_bindings: None,
-            marker: PhantomData,
         })
     }
 }
-impl<'cred, CU, E, D> ClientBuilder<'cred, CU, NoSigning, E, D> {
-    pub fn request_signing(self) -> ClientBuilder<'cred, CU, MaybeSigning, E, D> {
-        self.convert_policy()
+impl<'cred, CU> ClientBuilder<'cred, CU> {
+    pub fn with_flag(mut self, flags: CapabilityFlags) -> Self {
+        self.flags.add_flag(flags);
+        self
     }
-    pub fn deny_signing(self) -> ClientBuilder<'cred, CU, DeniedSigning, E, D> {
-        self.convert_policy()
+    pub fn offer_mutual_auth(self) -> Self {
+        self.with_flag(CapabilityFlags::MUTUAL_AUTH)
     }
-}
-impl<'cred, CU, S, D> ClientBuilder<'cred, CU, S, NoEncryption, D> {
-    pub fn request_encryption(self) -> ClientBuilder<'cred, CU, S, MaybeEncryption, D> {
-        self.convert_policy()
+    pub fn request_signing(self) -> Self {
+        self.with_flag(CapabilityFlags::INTEGRITY)
     }
-}
-impl<'cred, CU, S, E> ClientBuilder<'cred, CU, S, E, NoDelegation> {
-    pub fn allow_delegation(self) -> ClientBuilder<'cred, CU, S, E, MaybeDelegation> {
-        self.convert_policy()
+    pub fn request_encryption(self) -> Self {
+        self.with_flag(CapabilityFlags::CONFIDENTIALITY)
     }
-}
-impl<'cred, CU, S1, E1, D1> ClientBuilder<'cred, CU, S1, E1, D1> {
-    fn convert_policy<S2, E2, D2>(self) -> ClientBuilder<'cred, CU, S2, E2, D2> {
-        ClientBuilder {
-            cred: self.cred,
-            target_principal: self.target_principal,
-            requested_duration: self.requested_duration,
-            channel_bindings: None,
-            marker: PhantomData,
-        }
+    pub fn allow_delegation(self) -> Self {
+        self.with_flag(CapabilityFlags::DELEGATE)
     }
     pub fn request_duration(self, duration: Duration) -> Self {
         Self {
@@ -83,13 +65,12 @@ impl<'cred, CU, S1, E1, D1> ClientBuilder<'cred, CU, S1, E1, D1> {
         })
     }
 }
-impl<'cred, CU: OutboundUsable, S: SignPolicy, E: EncryptionPolicy, D: DelegationPolicy>
-    ClientBuilder<'cred, CU, S, E, D>
-{
-    pub fn initialize(self) -> Result<StepOut<'cred, CU, S, E, D>, Error> {
+impl<'cred, CU: OutboundUsable> ClientBuilder<'cred, CU> {
+    pub fn initialize(self) -> Result<StepOut<'cred, CU>, Error> {
         step(
             None,
             self.cred,
+            self.flags,
             self.target_principal,
             None,
             self.requested_duration,

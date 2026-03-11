@@ -5,10 +5,11 @@ use std::{
     time::{Duration, Instant},
 };
 
-use kenobi_core::cred::usage::OutboundUsable;
+use kenobi_core::{cred::usage::OutboundUsable, flags::CapabilityFlags};
 use libgssapi_sys::{
-    _GSS_C_INDEFINITE, GSS_C_MUTUAL_FLAG, GSS_S_COMPLETE, GSS_S_CONTINUE_NEEDED, gss_buffer_desc,
-    gss_buffer_desc_struct, gss_channel_bindings_struct, gss_delete_sec_context, gss_init_sec_context,
+    _GSS_C_INDEFINITE, GSS_C_CONF_FLAG, GSS_C_DELEG_FLAG, GSS_C_INTEG_FLAG, GSS_C_MUTUAL_FLAG, GSS_S_COMPLETE,
+    GSS_S_CONTINUE_NEEDED, gss_buffer_desc, gss_buffer_desc_struct, gss_channel_bindings_struct,
+    gss_delete_sec_context, gss_init_sec_context,
 };
 
 use crate::{
@@ -46,7 +47,7 @@ impl<CU: OutboundUsable> ClientContext<'_, CU, NoSigning, NoEncryption, NoDelega
     pub fn new<'cred>(
         cred: &'cred Credentials<CU>,
         target_principal: Option<&str>,
-    ) -> Result<StepOut<'cred, CU, NoSigning, NoEncryption, NoDelegation>, Error> {
+    ) -> Result<StepOut<'cred, CU>, Error> {
         ClientBuilder::new(cred, target_principal)?.initialize()
     }
 }
@@ -104,24 +105,23 @@ impl<'cred, CU, S1, E1, D1> ClientContext<'cred, CU, S1, E1, D1> {
     }
 }
 
-pub struct PendingClientContext<'cred, CU, S, E, D> {
+pub struct PendingClientContext<'cred, CU> {
     context: ContextHandle,
     cred: &'cred Credentials<CU>,
     next_token: token::Token,
+    flags: CapabilityFlags,
     target_principal: Option<NameHandle>,
     requested_duration: Option<Duration>,
     channel_bindings: Option<Box<[u8]>>,
     #[expect(dead_code)]
     valid_until: Instant,
-    marker: PhantomData<(S, E, D)>,
 }
-impl<'cred, CU: OutboundUsable, S: SignPolicy, E: EncryptionPolicy, D: DelegationPolicy>
-    PendingClientContext<'cred, CU, S, E, D>
-{
-    pub fn step(self, token: &[u8]) -> Result<StepOut<'cred, CU, S, E, D>, Error> {
+impl<'cred, CU: OutboundUsable> PendingClientContext<'cred, CU> {
+    pub fn step(self, token: &[u8]) -> Result<StepOut<'cred, CU>, Error> {
         step(
             Some(self.context),
             self.cred,
+            self.flags,
             self.target_principal,
             Some(token),
             self.requested_duration,
@@ -129,7 +129,7 @@ impl<'cred, CU: OutboundUsable, S: SignPolicy, E: EncryptionPolicy, D: Delegatio
         )
     }
 }
-impl<CU, S: SignPolicy, E: EncryptionPolicy, D: DelegationPolicy> PendingClientContext<'_, CU, S, E, D> {
+impl<CU> PendingClientContext<'_, CU> {
     pub fn next_token(&self) -> &[u8] {
         self.next_token.as_slice()
     }
@@ -142,14 +142,15 @@ fn empty_token() -> gss_buffer_desc {
     }
 }
 
-fn step<'cred, CU: OutboundUsable, S: SignPolicy, E: EncryptionPolicy, D: DelegationPolicy>(
+fn step<'cred, CU: OutboundUsable>(
     mut ctx: Option<ContextHandle>,
     cred: &'cred Credentials<CU>,
+    flags: CapabilityFlags,
     mut target_principal: Option<NameHandle>,
     token: Option<&[u8]>,
     requested_duration: Option<Duration>,
     channel_bindings: Option<Box<[u8]>>,
-) -> Result<StepOut<'cred, CU, S, E, D>, Error> {
+) -> Result<StepOut<'cred, CU>, Error> {
     let mut ctx_ptr = ctx.as_mut().map(ContextHandle::as_mut).unwrap_or_default();
     let mut minor_status = 0;
     let mut remaining_seconds = 0;
@@ -173,7 +174,7 @@ fn step<'cred, CU: OutboundUsable, S: SignPolicy, E: EncryptionPolicy, D: Delega
             &mut ctx_ptr,
             target_principal.as_mut().map_or(std::ptr::null_mut(), |nn| nn.as_mut()),
             &mut mech_kerberos(),
-            GSS_C_MUTUAL_FLAG | S::REQUESTED_FLAGS | E::REQUESTED_FLAGS | D::REQUESTED_FLAGS,
+            convert_flags(flags),
             requested_duration.map_or(_GSS_C_INDEFINITE, |d| d.as_secs().min(u32::MAX.into()) as u32),
             channel_application_buffer
                 .as_mut()
@@ -198,11 +199,11 @@ fn step<'cred, CU: OutboundUsable, S: SignPolicy, E: EncryptionPolicy, D: Delega
                 cred,
                 context: ctx.unwrap_or_else(|| unsafe { ContextHandle::pick_up(NonNull::new(ctx_ptr).unwrap()) }),
                 next_token: unsafe { Token::pick_up(next_token).unwrap() },
+                flags,
                 target_principal,
                 valid_until,
                 requested_duration,
                 channel_bindings,
-                marker: PhantomData,
             }))
         }
         code => {
@@ -218,9 +219,9 @@ fn step<'cred, CU: OutboundUsable, S: SignPolicy, E: EncryptionPolicy, D: Delega
     }
 }
 
-pub enum StepOut<'cred, CU, S, E, D> {
-    Pending(PendingClientContext<'cred, CU, S, E, D>),
-    Finished(ClientContext<'cred, CU, S, E, D>),
+pub enum StepOut<'cred, CU> {
+    Pending(PendingClientContext<'cred, CU>),
+    Finished(ClientContext<'cred, CU, MaybeSigning, MaybeEncryption, MaybeDelegation>),
 }
 
 mod token {
@@ -245,6 +246,23 @@ mod token {
             unsafe { std::slice::from_raw_parts(self.0.value as *const u8, self.0.length) }
         }
     }
+}
+
+fn convert_flags(flags: CapabilityFlags) -> u32 {
+    let mut out = 0;
+    if flags.contains_all(CapabilityFlags::MUTUAL_AUTH) {
+        out |= GSS_C_MUTUAL_FLAG;
+    }
+    if flags.contains_all(CapabilityFlags::INTEGRITY) {
+        out |= GSS_C_INTEG_FLAG;
+    }
+    if flags.contains_all(CapabilityFlags::CONFIDENTIALITY) {
+        out |= GSS_C_CONF_FLAG;
+    }
+    if flags.contains_all(CapabilityFlags::DELEGATE) {
+        out |= GSS_C_DELEG_FLAG;
+    }
+    out
 }
 
 fn as_channel_bindings(arr: &[u8]) -> gss_channel_bindings_struct {

@@ -1,8 +1,12 @@
 use kenobi_core::cred::usage::OutboundUsable;
+use kenobi_core::flags::CapabilityFlags;
 use kenobi_core::typestate::{
-    Encryption, MaybeEncryption, MaybeSigning, NoDelegation, NoEncryption, NoSigning, Signing,
+    Encryption, MaybeDelegation, MaybeEncryption, MaybeSigning, NoDelegation, NoEncryption, NoSigning, Signing,
 };
 use std::{ffi::c_void, marker::PhantomData};
+use windows::Win32::Security::Authentication::Identity::{
+    ISC_REQ_CONFIDENTIALITY, ISC_REQ_DELEGATE, ISC_REQ_INTEGRITY, ISC_REQ_NO_INTEGRITY,
+};
 use windows::Win32::{
     Foundation::{
         SEC_E_INTERNAL_ERROR, SEC_E_INVALID_HANDLE, SEC_E_INVALID_TOKEN, SEC_E_LOGON_DENIED,
@@ -79,7 +83,7 @@ impl<Usage: OutboundUsable> ClientContext<'_, Usage, NoSigning, NoEncryption, No
     pub fn new_from_cred<'cred>(
         cred: &'cred Credentials<Usage>,
         target_principal: Option<&str>,
-    ) -> Result<StepOut<'cred, Usage, NoSigning, NoEncryption, NoDelegation>, InitializeContextError> {
+    ) -> Result<StepOut<'cred, Usage>, InitializeContextError> {
         ClientBuilder::new_from_credentials(cred, target_principal).initialize()
     }
 }
@@ -124,22 +128,21 @@ impl<'cred, Usage, S1, E1, D1> ClientContext<'cred, Usage, S1, E1, D1> {
     }
 }
 
-pub struct PendingClientContext<'cred, Usage, S = NoSigning, E = NoEncryption, D = NoDelegation> {
+pub struct PendingClientContext<'cred, Usage> {
     target_spn: Option<Box<[u16]>>,
     cred: &'cred Credentials<Usage>,
     context: ContextHandle,
+    flags: CapabilityFlags,
     token_buffer: NonResizableVec,
     attributes: u32,
-    _enc: PhantomData<(S, E, D)>,
 }
-impl<'cred, Usage: OutboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: DelegationPolicy>
-    PendingClientContext<'cred, Usage, S, E, D>
-{
-    pub fn step(self, token: &[u8]) -> Result<StepOut<'cred, Usage, S, E, D>, InitializeContextError> {
+impl<'cred, Usage: OutboundUsable> PendingClientContext<'cred, Usage> {
+    pub fn step(self, token: &[u8]) -> Result<StepOut<'cred, Usage>, InitializeContextError> {
         step(
             self.cred,
             self.target_spn,
             Some(self.context),
+            self.flags,
             self.attributes,
             self.token_buffer,
             None,
@@ -147,7 +150,7 @@ impl<'cred, Usage: OutboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: Del
         )
     }
 }
-impl<Usage, S, E, D> PendingClientContext<'_, Usage, S, E, D> {
+impl<Usage> PendingClientContext<'_, Usage> {
     pub fn next_token(&self) -> &[u8] {
         assert!(
             !self.token_buffer.is_empty(),
@@ -157,15 +160,17 @@ impl<Usage, S, E, D> PendingClientContext<'_, Usage, S, E, D> {
     }
 }
 
-fn step<'cred, Usage: OutboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: DelegationPolicy>(
+#[allow(clippy::too_many_arguments)]
+fn step<'cred, Usage: OutboundUsable>(
     cred: &'cred Credentials<Usage>,
     target_spn: Option<Box<[u16]>>,
     context: Option<ContextHandle>,
+    flags: CapabilityFlags,
     mut attributes: u32,
     mut token_buffer: NonResizableVec,
     channel_bindings: Option<&[u8]>,
     in_token: Option<&[u8]>,
-) -> Result<StepOut<'cred, Usage, S, E, D>, InitializeContextError> {
+) -> Result<StepOut<'cred, Usage>, InitializeContextError> {
     token_buffer.resize_max();
 
     let mut out_token_buffer = token_buffer.sec_buffer(SECBUFFER_TOKEN);
@@ -220,12 +225,6 @@ fn step<'cred, Usage: OutboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: 
     };
     let mut context = context.map(ContextHandle::leak);
 
-    let mutual_auth: ISC_REQ_FLAGS = if S::REMOVE_MUTUAL_AUTH_FLAG {
-        ISC_REQ_FLAGS(0)
-    } else {
-        ISC_REQ_MUTUAL_AUTH
-    };
-
     let opt_sec_handle = context.as_ref().map(std::ptr::from_ref);
     let out_sec_handle = context.get_or_insert_default();
     let hres = unsafe {
@@ -233,7 +232,7 @@ fn step<'cred, Usage: OutboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: 
             Some(cred.as_ref().as_raw_handle()),
             opt_sec_handle,
             target_spn.as_ref().map(|b| b.as_ptr()),
-            mutual_auth | S::ADDED_REQ_FLAGS | E::ADDED_REQ_FLAGS | D::ADDED_REQ_FLAGS,
+            convert_flags(flags),
             0,
             SECURITY_NATIVE_DREP,
             in_token_buf_desc.as_ref().map(std::ptr::from_ref),
@@ -265,9 +264,9 @@ fn step<'cred, Usage: OutboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: 
                 target_spn,
                 cred,
                 context,
+                flags,
                 token_buffer,
                 attributes,
-                _enc: PhantomData,
             }))
         }
         SEC_E_INTERNAL_ERROR => Err(InitializeContextError::Internal),
@@ -283,7 +282,26 @@ fn step<'cred, Usage: OutboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: 
     }
 }
 
-pub enum StepOut<'cred, Usage, S = NoSigning, E = NoEncryption, D = NoDelegation> {
-    Pending(PendingClientContext<'cred, Usage, S, E, D>),
-    Completed(ClientContext<'cred, Usage, S, E, D>),
+fn convert_flags(flags: CapabilityFlags) -> ISC_REQ_FLAGS {
+    let mut out_flags = ISC_REQ_FLAGS(0);
+    if flags.contains_all(CapabilityFlags::MUTUAL_AUTH) {
+        out_flags |= ISC_REQ_MUTUAL_AUTH;
+    }
+    if flags.contains_all(CapabilityFlags::INTEGRITY) {
+        out_flags |= ISC_REQ_INTEGRITY
+    } else {
+        out_flags |= ISC_REQ_NO_INTEGRITY
+    };
+    if flags.contains_all(CapabilityFlags::CONFIDENTIALITY) {
+        out_flags |= ISC_REQ_CONFIDENTIALITY
+    }
+    if flags.contains_all(CapabilityFlags::DELEGATE) {
+        out_flags |= ISC_REQ_DELEGATE
+    }
+    out_flags
+}
+
+pub enum StepOut<'cred, Usage> {
+    Pending(PendingClientContext<'cred, Usage>),
+    Completed(ClientContext<'cred, Usage, MaybeSigning, MaybeEncryption, MaybeDelegation>),
 }

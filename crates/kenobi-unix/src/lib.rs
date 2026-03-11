@@ -28,7 +28,5 @@ fn mech_spnego() -> gss_OID_desc {
 }
 
 pub mod typestate {
-    pub use kenobi_core::typestate::{
-        DeniedSigning, Encryption, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, Signing,
-    };
+    pub use kenobi_core::typestate::{Encryption, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, Signing};
 }

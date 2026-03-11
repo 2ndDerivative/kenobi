@@ -68,7 +68,7 @@ pub mod channel_bindings {
 }
 pub mod typestate {
     pub use kenobi_core::typestate::{
-        Delegation, DeniedSigning, Encryption, MaybeDelegation, MaybeEncryption, MaybeSigning, NoDelegation,
-        NoEncryption, NoSigning, Signing,
+        Delegation, Encryption, MaybeDelegation, MaybeEncryption, MaybeSigning, NoDelegation, NoEncryption, NoSigning,
+        Signing,
     };
 }

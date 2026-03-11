@@ -1,6 +1,5 @@
 pub trait PreAuthState {}
 
-pub enum DeniedSigning {}
 pub enum NoSigning {}
 pub enum MaybeSigning {}
 pub enum Signing {}

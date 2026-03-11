@@ -1,4 +1,4 @@
-use kenobi_core::cred::usage::OutboundUsable;
+use kenobi_core::{cred::usage::OutboundUsable, typestate::MaybeDelegation};
 
 #[cfg(unix)]
 use kenobi_unix::client::{
@@ -13,10 +13,10 @@ pub use builder::ClientBuilder;
 use kenobi_core::typestate::{
     Encryption, MaybeEncryption, MaybeSigning, NoDelegation, NoEncryption, NoSigning, Signing,
 };
-pub use typestate::{EncryptionState, SigningState, UnfinishedEncryptionState, UnfinishedSigningState};
+pub use typestate::{EncryptionState, SigningState};
 
 use crate::{
-    client::typestate::{DelegationState, UnfinishedDelegationState},
+    client::typestate::DelegationState,
     cred::{Credentials, CredentialsUsage},
     sign_encrypt::{Signature, UnwrapError, WrapError},
 };
@@ -37,10 +37,7 @@ pub struct ClientContext<'cred, Usage, S: SigningState, E: EncryptionState, D: D
 impl<'cred, Usage: CredentialsUsage + OutboundUsable>
     ClientContext<'cred, Usage, NoSigning, NoEncryption, NoDelegation>
 {
-    pub fn new_from_cred(
-        cred: &'cred Credentials<Usage>,
-        target_principal: Option<&str>,
-    ) -> StepOut<'cred, Usage, NoSigning, NoEncryption, NoDelegation> {
+    pub fn new_from_cred(cred: &'cred Credentials<Usage>, target_principal: Option<&str>) -> StepOut<'cred, Usage> {
         #[cfg(windows)]
         return StepOut::from_windows(WinContext::new_from_cred(&cred.inner, target_principal).unwrap());
         #[cfg(unix)]
@@ -138,46 +135,29 @@ impl<Usage, D: DelegationState> ClientContext<'_, Usage, Signing, Encryption, D>
     }
 }
 
-pub struct PendingClientContext<
-    'cred,
-    Usage,
-    S: UnfinishedSigningState,
-    E: UnfinishedEncryptionState,
-    D: UnfinishedDelegationState,
-> {
+pub struct PendingClientContext<'cred, Usage> {
     #[cfg(windows)]
-    inner: WinPendingClientContext<'cred, Usage, S, E, D>,
+    inner: WinPendingClientContext<'cred, Usage>,
     #[cfg(unix)]
-    inner: UnixPendingClientContext<'cred, Usage, S, E, D>,
+    inner: UnixPendingClientContext<'cred, Usage>,
 }
 
 #[cfg(windows)]
-impl<Usage, S: UnfinishedSigningState, E: UnfinishedEncryptionState, D: UnfinishedDelegationState>
-    PendingClientContext<'_, Usage, S, E, D>
-{
+impl<Usage> PendingClientContext<'_, Usage> {
     #[must_use]
     pub fn next_token(&self) -> &[u8] {
         self.inner.next_token()
     }
 }
 #[cfg(unix)]
-impl<Usage, S: UnfinishedSigningState, E: UnfinishedEncryptionState, D: UnfinishedDelegationState>
-    PendingClientContext<'_, Usage, S, E, D>
-{
+impl<Usage> PendingClientContext<'_, Usage> {
     pub fn next_token(&self) -> &[u8] {
         self.inner.next_token()
     }
 }
 #[cfg(windows)]
-impl<
-    'cred,
-    Usage: OutboundUsable,
-    S: UnfinishedSigningState,
-    E: UnfinishedEncryptionState,
-    D: UnfinishedDelegationState,
-> PendingClientContext<'cred, Usage, S, E, D>
-{
-    pub fn step(self, token: &[u8]) -> StepOut<'cred, Usage, S, E, D> {
+impl<'cred, Usage: OutboundUsable> PendingClientContext<'cred, Usage> {
+    pub fn step(self, token: &[u8]) -> StepOut<'cred, Usage> {
         match self.inner.step(token).unwrap() {
             WinStepOut::Completed(inner) => StepOut::Finished(ClientContext { inner }),
             WinStepOut::Pending(inner) => StepOut::Pending(PendingClientContext { inner }),
@@ -186,15 +166,8 @@ impl<
 }
 
 #[cfg(unix)]
-impl<
-    'cred,
-    Usage: OutboundUsable,
-    S: UnfinishedSigningState,
-    E: UnfinishedEncryptionState,
-    D: UnfinishedDelegationState,
-> PendingClientContext<'cred, Usage, S, E, D>
-{
-    pub fn step(self, token: &[u8]) -> StepOut<'cred, Usage, S, E, D> {
+impl<'cred, Usage: OutboundUsable> PendingClientContext<'cred, Usage> {
+    pub fn step(self, token: &[u8]) -> StepOut<'cred, Usage> {
         match self.inner.step(token).unwrap() {
             UnixStepOut::Finished(inner) => StepOut::Finished(ClientContext { inner }),
             UnixStepOut::Pending(inner) => StepOut::Pending(PendingClientContext { inner }),
@@ -202,22 +175,20 @@ impl<
     }
 }
 
-pub enum StepOut<'cred, Usage, S: UnfinishedSigningState, E: UnfinishedEncryptionState, D: UnfinishedDelegationState> {
-    Pending(PendingClientContext<'cred, Usage, S, E, D>),
-    Finished(ClientContext<'cred, Usage, S, E, D>),
+pub enum StepOut<'cred, Usage> {
+    Pending(PendingClientContext<'cred, Usage>),
+    Finished(ClientContext<'cred, Usage, MaybeSigning, MaybeEncryption, MaybeDelegation>),
 }
-impl<'cred, Usage, S: UnfinishedSigningState, E: UnfinishedEncryptionState, D: UnfinishedDelegationState>
-    StepOut<'cred, Usage, S, E, D>
-{
+impl<'cred, Usage> StepOut<'cred, Usage> {
     #[cfg(windows)]
-    fn from_windows(win: WinStepOut<'cred, Usage, S, E, D>) -> StepOut<'cred, Usage, S, E, D> {
+    fn from_windows(win: WinStepOut<'cred, Usage>) -> StepOut<'cred, Usage> {
         match win {
             WinStepOut::Completed(inner) => Self::Finished(ClientContext { inner }),
             WinStepOut::Pending(inner) => Self::Pending(PendingClientContext { inner }),
         }
     }
     #[cfg(unix)]
-    fn from_unix(win: UnixStepOut<'cred, Usage, S, E, D>) -> StepOut<'cred, Usage, S, E, D> {
+    fn from_unix(win: UnixStepOut<'cred, Usage>) -> StepOut<'cred, Usage> {
         match win {
             UnixStepOut::Finished(inner) => Self::Finished(ClientContext { inner }),
             UnixStepOut::Pending(inner) => Self::Pending(PendingClientContext { inner }),

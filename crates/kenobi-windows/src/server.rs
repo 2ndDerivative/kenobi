@@ -6,12 +6,13 @@ use windows::Win32::{
         SEC_E_NO_AUTHENTICATING_AUTHORITY, SEC_E_OK, SEC_E_UNSUPPORTED_FUNCTION, SEC_I_CONTINUE_NEEDED,
     },
     Security::Authentication::Identity::{
-        ASC_REQ_MUTUAL_AUTH, AcceptSecurityContext, SEC_CHANNEL_BINDINGS, SECBUFFER_CHANNEL_BINDINGS, SECBUFFER_TOKEN,
-        SECBUFFER_VERSION, SECURITY_NATIVE_DREP, SecBuffer, SecBufferDesc,
+        ASC_REQ_CONFIDENTIALITY, ASC_REQ_DELEGATE, ASC_REQ_FLAGS, ASC_REQ_INTEGRITY, ASC_REQ_MUTUAL_AUTH,
+        AcceptSecurityContext, SEC_CHANNEL_BINDINGS, SECBUFFER_CHANNEL_BINDINGS, SECBUFFER_TOKEN, SECBUFFER_VERSION,
+        SECURITY_NATIVE_DREP, SecBuffer, SecBufferDesc,
     },
 };
 
-use kenobi_core::cred::usage::InboundUsable;
+use kenobi_core::{cred::usage::InboundUsable, flags::CapabilityFlags};
 
 use crate::{
     buffer::NonResizableVec,
@@ -49,8 +50,16 @@ where
     pub fn initialize<'cred>(
         cred: &'cred Credentials<Usage>,
         first_token: &[u8],
-    ) -> Result<StepOut<'cred, Usage, S, E, D>, AcceptContextError> {
-        step(cred, None, 0, NonResizableVec::new(), None, first_token)
+    ) -> Result<StepOut<'cred, Usage>, AcceptContextError> {
+        step(
+            cred,
+            None,
+            CapabilityFlags::MUTUAL_AUTH | CapabilityFlags::INTEGRITY | CapabilityFlags::CONFIDENTIALITY,
+            0,
+            NonResizableVec::new(),
+            None,
+            first_token,
+        )
     }
 }
 impl<Usage, S, E, D> ServerContext<'_, Usage, S, E, D> {
@@ -121,27 +130,25 @@ impl<'cred, Usage, S1, E1, D1> ServerContext<'cred, Usage, S1, E1, D1> {
     }
 }
 
-pub struct PendingServerContext<'cred, Usage, S = NoSigning, E = NoEncryption, D = NoDelegation> {
+pub struct PendingServerContext<'cred, Usage> {
     cred: &'cred Credentials<Usage>,
     context: ContextHandle,
+    flags: CapabilityFlags,
     attributes: u32,
     token_buffer: NonResizableVec,
-    _enc: PhantomData<(S, E, D)>,
 }
-impl<Usage, S, E, D> PendingServerContext<'_, Usage, S, E, D> {
+impl<Usage> PendingServerContext<'_, Usage> {
     pub fn next_token(&self) -> &[u8] {
         assert!(!self.token_buffer.is_empty());
         &self.token_buffer
     }
 }
-
-impl<'cred, Usage: InboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: DelegationPolicy>
-    PendingServerContext<'cred, Usage, S, E, D>
-{
-    pub fn step(self, token: &[u8]) -> Result<StepOut<'cred, Usage, S, E, D>, AcceptContextError> {
+impl<'cred, Usage: InboundUsable> PendingServerContext<'cred, Usage> {
+    pub fn step(self, token: &[u8]) -> Result<StepOut<'cred, Usage>, AcceptContextError> {
         step(
             self.cred,
             Some(self.context),
+            self.flags,
             self.attributes,
             self.token_buffer,
             None,
@@ -150,14 +157,15 @@ impl<'cred, Usage: InboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: Dele
     }
 }
 
-fn step<'cred, Usage: InboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: DelegationPolicy>(
+fn step<'cred, Usage: InboundUsable>(
     cred: &'cred Credentials<Usage>,
     mut context: Option<ContextHandle>,
+    flags: CapabilityFlags,
     mut attributes: u32,
     mut token_buffer: NonResizableVec,
     channel_bindings: Option<&[u8]>,
     in_token: &[u8],
-) -> Result<StepOut<'cred, Usage, S, E, D>, AcceptContextError> {
+) -> Result<StepOut<'cred, Usage>, AcceptContextError> {
     token_buffer.resize_max();
 
     let mut out_token_buffer = token_buffer.sec_buffer(SECBUFFER_TOKEN);
@@ -204,10 +212,7 @@ fn step<'cred, Usage: InboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: D
             Some(cred.as_ref().as_raw_handle()),
             old_context_ptr,
             Some(&in_buf_desc),
-            ASC_REQ_MUTUAL_AUTH
-                | <S as typestate::sign::Sealed>::REQUEST_FLAGS
-                | <E as typestate::encrypt::Sealed>::REQUEST_FLAGS
-                | <D as typestate::delegation::Sealed>::REQUEST_FLAGS,
+            convert_flags(flags),
             SECURITY_NATIVE_DREP,
             Some(context.as_mut().map(|c| c.as_mut_ptr()).unwrap_or_default()),
             Some(&mut out_token_buffer_desc),
@@ -233,9 +238,9 @@ fn step<'cred, Usage: InboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: D
             Ok(StepOut::Pending(PendingServerContext {
                 cred,
                 context,
+                flags,
                 attributes,
                 token_buffer,
-                _enc: PhantomData,
             }))
         }
         SEC_E_INTERNAL_ERROR => Err(AcceptContextError::Internal),
@@ -248,7 +253,24 @@ fn step<'cred, Usage: InboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: D
     }
 }
 
-pub enum StepOut<'cred, Usage, S = NoSigning, E = NoEncryption, D = NoDelegation> {
-    Pending(PendingServerContext<'cred, Usage, S, E, D>),
-    Completed(ServerContext<'cred, Usage, S, E, D>),
+fn convert_flags(flag: CapabilityFlags) -> ASC_REQ_FLAGS {
+    let mut out_flags = ASC_REQ_FLAGS(0);
+    if flag.contains_all(CapabilityFlags::MUTUAL_AUTH) {
+        out_flags |= ASC_REQ_MUTUAL_AUTH;
+    }
+    if flag.contains_all(CapabilityFlags::INTEGRITY) {
+        out_flags |= ASC_REQ_INTEGRITY
+    };
+    if flag.contains_all(CapabilityFlags::CONFIDENTIALITY) {
+        out_flags |= ASC_REQ_CONFIDENTIALITY
+    }
+    if flag.contains_all(CapabilityFlags::DELEGATE) {
+        out_flags |= ASC_REQ_DELEGATE
+    }
+    out_flags
+}
+
+pub enum StepOut<'cred, Usage> {
+    Pending(PendingServerContext<'cred, Usage>),
+    Completed(ServerContext<'cred, Usage, MaybeSigning, MaybeEncryption, MaybeDelegation>),
 }

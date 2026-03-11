@@ -1,60 +1,40 @@
-use std::marker::PhantomData;
-
 use crate::{
     buffer::NonResizableVec,
     cred::Credentials,
-    server::{
-        StepOut,
-        error::AcceptContextError,
-        typestate::{DelegationPolicy, EncryptionPolicy, SigningPolicy},
-    },
+    server::{StepOut, error::AcceptContextError},
 };
-use kenobi_core::{
-    channel_bindings::Channel,
-    cred::usage::InboundUsable,
-    typestate::{MaybeDelegation, MaybeEncryption, MaybeSigning, NoDelegation, NoEncryption, NoSigning},
-};
+use kenobi_core::{channel_bindings::Channel, cred::usage::InboundUsable, flags::CapabilityFlags};
 
-pub struct ServerBuilder<'cred, Usage, S = NoSigning, E = NoEncryption, D = NoDelegation> {
+pub struct ServerBuilder<'cred, Usage> {
     cred: &'cred Credentials<Usage>,
     channel_bindings: Option<Box<[u8]>>,
-    _enc: PhantomData<(S, E, D)>,
+    flags: CapabilityFlags,
 }
-impl<Usage> ServerBuilder<'_, Usage, NoSigning, NoEncryption, NoDelegation> {
-    pub fn new_from_credentials<'cred>(
-        cred: &'cred Credentials<Usage>,
-    ) -> ServerBuilder<'cred, Usage, NoSigning, NoEncryption, NoDelegation> {
+impl<Usage> ServerBuilder<'_, Usage> {
+    pub fn new_from_credentials<'cred>(cred: &'cred Credentials<Usage>) -> ServerBuilder<'cred, Usage> {
         ServerBuilder {
             cred,
             channel_bindings: None,
-            _enc: PhantomData,
+            flags: CapabilityFlags::default(),
         }
     }
-}
-impl<'cred, Usage, S, E> ServerBuilder<'cred, Usage, S, E, NoDelegation> {
-    pub fn request_delegation(self) -> ServerBuilder<'cred, Usage, S, E, MaybeDelegation> {
-        self.convert_policy()
+    pub fn with_flag(mut self, flag: CapabilityFlags) -> Self {
+        self.flags.add_flag(flag);
+        self
     }
-}
-impl<'cred, Usage, E, D> ServerBuilder<'cred, Usage, NoSigning, E, D> {
-    pub fn offer_signing(self) -> ServerBuilder<'cred, Usage, MaybeSigning, E, D> {
-        self.convert_policy()
+    pub fn offer_mutual_auth(self) -> Self {
+        self.with_flag(CapabilityFlags::MUTUAL_AUTH)
     }
-}
-impl<'cred, Usage, S, D> ServerBuilder<'cred, Usage, S, NoEncryption, D> {
-    pub fn offer_encryption(self) -> ServerBuilder<'cred, Usage, S, MaybeEncryption, D> {
-        self.convert_policy()
+    pub fn request_delegation(self) -> Self {
+        self.with_flag(CapabilityFlags::DELEGATE)
     }
-}
-impl<'cred, Usage, S1, E1, D1> ServerBuilder<'cred, Usage, S1, E1, D1> {
-    fn convert_policy<S2, E2, D2>(self) -> ServerBuilder<'cred, Usage, S2, E2, D2> {
-        ServerBuilder {
-            cred: self.cred,
-            channel_bindings: self.channel_bindings,
-            _enc: PhantomData,
-        }
+    pub fn offer_signing(self) -> Self {
+        self.with_flag(CapabilityFlags::INTEGRITY)
     }
-    pub fn bind_to_channel<C: Channel>(self, channel: &C) -> Result<ServerBuilder<'cred, Usage, S1, E1, D1>, C::Error> {
+    pub fn offer_encryption(self) -> Self {
+        self.with_flag(CapabilityFlags::CONFIDENTIALITY)
+    }
+    pub fn bind_to_channel<C: Channel>(self, channel: &C) -> Result<Self, C::Error> {
         let channel_bindings = channel.channel_bindings()?.map(|v| v.into_boxed_slice());
         Ok(Self {
             channel_bindings,
@@ -62,13 +42,12 @@ impl<'cred, Usage, S1, E1, D1> ServerBuilder<'cred, Usage, S1, E1, D1> {
         })
     }
 }
-impl<'cred, Usage: InboundUsable, S: SigningPolicy, E: EncryptionPolicy, D: DelegationPolicy>
-    ServerBuilder<'cred, Usage, S, E, D>
-{
-    pub fn initialize(self, token: &[u8]) -> Result<StepOut<'cred, Usage, S, E, D>, AcceptContextError> {
+impl<'cred, Usage: InboundUsable> ServerBuilder<'cred, Usage> {
+    pub fn initialize(self, token: &[u8]) -> Result<StepOut<'cred, Usage>, AcceptContextError> {
         super::step(
             self.cred,
             None,
+            self.flags,
             0,
             NonResizableVec::new(),
             self.channel_bindings.as_deref(),
