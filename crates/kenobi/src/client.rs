@@ -55,7 +55,7 @@ impl<Usage, S: SigningState, E: EncryptionState, D: DelegationState> ClientConte
 }
 
 #[cfg(unix)]
-impl<Usage, S: SigningState, E: EncryptionState, D: DelegationState> ClientContext<'_, Usage, S, E, D> {
+impl<Usage, S: SigningState, E: EncryptionState, D: DelegationState> ClientContext<Usage, S, E, D> {
     #[must_use]
     pub fn last_token(&self) -> Option<&[u8]> {
         self.inner.last_token()

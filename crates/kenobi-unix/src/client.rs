@@ -2,6 +2,7 @@ use std::{
     ffi::c_void,
     marker::PhantomData,
     ptr::NonNull,
+    sync::Arc,
     time::{Duration, Instant},
 };
 
@@ -44,7 +45,7 @@ pub struct ClientContext<CU, S, E, D> {
 
 impl<CU: OutboundUsable> ClientContext<CU, NoSigning, NoEncryption, NoDelegation> {
     #[allow(clippy::new_ret_no_self)]
-    pub fn new<CU>(cred: Arc<Credentials<CU>>, target_principal: Option<&str>) -> Result<StepOut<CU>, Error> {
+    pub fn new(cred: Arc<Credentials<CU>>, target_principal: Option<&str>) -> Result<StepOut<CU>, Error> {
         ClientBuilder::new(cred, target_principal)?.initialize()
     }
 }

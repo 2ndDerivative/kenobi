@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use kenobi_core::{channel_bindings::Channel, cred::usage::OutboundUsable, flags::CapabilityFlags};
 use libgssapi_sys::GSS_C_NT_USER_NAME;

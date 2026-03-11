@@ -4,7 +4,7 @@ pub mod sign_encrypt;
 pub mod cred {
     #[cfg(windows)]
     use std::sync::Arc;
-    use std::{marker::PhantomData, time::Instant};
+    use std::{marker::PhantomData, sync::Arc, time::Instant};
 
     pub use kenobi_core::cred::usage::{Both, Inbound, InboundUsable, Outbound, OutboundUsable};
     #[cfg(unix)]

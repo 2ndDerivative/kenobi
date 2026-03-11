@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use kenobi_unix::{
     client::{ClientContext, StepOut},
     cred::Credentials,
@@ -14,7 +16,7 @@ fn main() {
             panic!()
         }
     };
-    let mut _ctx = match ClientContext::new(&cred, service_principal.as_deref()) {
+    let mut _ctx = match ClientContext::new(Arc::new(cred), service_principal.as_deref()) {
         Ok(StepOut::Finished(_)) => return,
         Ok(StepOut::Pending(pending)) => pending,
         Err(err) => {
