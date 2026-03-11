@@ -22,7 +22,6 @@ fn oid(mech: &'static [u8]) -> gss_OID_desc {
 fn mech_kerberos() -> gss_OID_desc {
     oid(MECH_KERBEROS)
 }
-#[expect(unused)]
 fn mech_spnego() -> gss_OID_desc {
     oid(MECH_SPNEGO)
 }
@@ -30,3 +29,4 @@ fn mech_spnego() -> gss_OID_desc {
 pub mod typestate {
     pub use kenobi_core::typestate::{Encryption, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, Signing};
 }
+pub use kenobi_core::mech::Mechanism;

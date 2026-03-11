@@ -17,6 +17,7 @@ fn windows_timestamp_to_system_time(windows_ticks: i64) -> SystemTime {
 
 use crate::{KERBEROS, NEGOTIATE, cred::handle::CredentialsHandle};
 pub use kenobi_core::cred::usage::{Both, Inbound, Outbound};
+use kenobi_core::mech::Mechanism;
 use windows::{
     Win32::Security::{
         Authentication::Identity::{
@@ -93,20 +94,24 @@ pub struct Credentials<Usage> {
     _usage: PhantomData<Usage>,
 }
 impl<Usage: CredentialsUsage> Credentials<Usage> {
-    pub fn acquire_default(principal: Option<&str>) -> Result<Credentials<Usage>, Error> {
+    pub fn acquire(principal: Option<&str>, mechanism: Mechanism) -> Result<Credentials<Usage>, Error> {
         Credentials::acquire_pure_kerberos(principal)
     }
     pub fn acquire_negotiate(principal: Option<&str>) -> Result<Credentials<Usage>, Error> {
-        Credentials::acquire(principal, NEGOTIATE)
+        Credentials::acquire(principal, Mechanism::Spnego)
     }
     pub fn acquire_pure_kerberos(principal: Option<&str>) -> Result<Credentials<Usage>, Error> {
-        Credentials::acquire(principal, KERBEROS)
+        Credentials::acquire(principal, Mechanism::KerberosV5)
     }
-    fn acquire(principal: Option<&str>, mech: PCWSTR) -> Result<Credentials<Usage>, Error> {
+    fn acquire(principal: Option<&str>, mechanism: Mechanism) -> Result<Credentials<Usage>, Error> {
         let mut handle = SecHandle::default();
         let mut expiry_ticks = 0;
         let princ_wide = principal.map(crate::to_wide);
         let princ_ref = princ_wide.as_ref().map(|b| b.as_ptr());
+        let mech = match mechanism {
+            Mechanism::KerberosV5 => KERBEROS,
+            Mechanism::Spnego => NEGOTIATE,
+        };
         let res = unsafe {
             AcquireCredentialsHandleW(
                 PCWSTR(princ_ref.unwrap_or_default()),
@@ -139,18 +144,18 @@ impl<Usage: CredentialsUsage> Credentials<Usage> {
     }
 }
 impl Credentials<Inbound> {
-    pub fn inbound(principal: Option<&str>) -> Result<Self, Error> {
-        Credentials::acquire_default(principal)
+    pub fn inbound(principal: Option<&str>, mechanism: Mechanism) -> Result<Self, Error> {
+        Credentials::acquire(principal, mechanism)
     }
 }
 impl Credentials<Outbound> {
-    pub fn outbound(principal: Option<&str>) -> Result<Self, Error> {
-        Credentials::acquire_default(principal)
+    pub fn outbound(principal: Option<&str>, mechanism: Mechanism) -> Result<Self, Error> {
+        Credentials::acquire(principal, mechanism)
     }
 }
 impl Credentials<Both> {
-    pub fn both(principal: Option<&str>) -> Result<Self, Error> {
-        Credentials::acquire_default(principal)
+    pub fn both(principal: Option<&str>, mechanism: Mechanism) -> Result<Self, Error> {
+        Credentials::acquire(principal, mechanism)
     }
 }
 impl<Usage> Credentials<Usage> {

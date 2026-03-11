@@ -21,3 +21,4 @@ fn to_wide(s: &str) -> Box<[u16]> {
 pub mod typestate {
     pub use kenobi_core::typestate::{Encryption, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, Signing};
 }
+pub use kenobi_core::mech;

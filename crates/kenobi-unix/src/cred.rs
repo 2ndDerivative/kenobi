@@ -1,4 +1,5 @@
 pub use kenobi_core::cred::usage::{Both, Inbound, Outbound};
+use kenobi_core::mech::Mechanism;
 use std::{
     marker::PhantomData,
     ptr::NonNull,
@@ -25,14 +26,21 @@ pub struct Credentials<Usage = Outbound> {
 unsafe impl<Usage> Send for Credentials<Usage> {}
 unsafe impl<Usage> Sync for Credentials<Usage> {}
 impl<Usage: CredentialsUsage> Credentials<Usage> {
-    pub fn new(principal: Option<&str>, time_required: Option<Duration>) -> Result<Self, super::Error> {
+    pub fn new(
+        principal: Option<&str>,
+        time_required: Option<Duration>,
+        mechanism: Mechanism,
+    ) -> Result<Self, super::Error> {
         let mut name = principal
             .map(|p| unsafe { NameHandle::import(p, GSS_C_NT_USER_NAME) })
             .transpose()?;
         let mut minor = 0;
         let mut validity = 0;
         let mut cred_handle = std::ptr::null_mut();
-        let mut mech = crate::mech_kerberos();
+        let mut mech = match mechanism {
+            Mechanism::KerberosV5 => crate::mech_kerberos(),
+            Mechanism::Spnego => crate::mech_spnego(),
+        };
         let mut mech_set = gss_OID_set_desc {
             count: 1,
             elements: &mut mech,
@@ -72,18 +80,30 @@ impl<Usage: CredentialsUsage> Credentials<Usage> {
     }
 }
 impl Credentials<Inbound> {
-    pub fn inbound(principal: Option<&str>, time_required: Option<Duration>) -> Result<Self, super::Error> {
-        Self::new(principal, time_required)
+    pub fn inbound(
+        principal: Option<&str>,
+        time_required: Option<Duration>,
+        mechanism: Mechanism,
+    ) -> Result<Self, super::Error> {
+        Self::new(principal, time_required, mechanism)
     }
 }
 impl Credentials<Outbound> {
-    pub fn outbound(principal: Option<&str>, time_required: Option<Duration>) -> Result<Self, super::Error> {
-        Self::new(principal, time_required)
+    pub fn outbound(
+        principal: Option<&str>,
+        time_required: Option<Duration>,
+        mechanism: Mechanism,
+    ) -> Result<Self, super::Error> {
+        Self::new(principal, time_required, mechanism)
     }
 }
 impl Credentials<Both> {
-    pub fn both(principal: Option<&str>, time_required: Option<Duration>) -> Result<Self, super::Error> {
-        Self::new(principal, time_required)
+    pub fn both(
+        principal: Option<&str>,
+        time_required: Option<Duration>,
+        mechanism: Mechanism,
+    ) -> Result<Self, super::Error> {
+        Self::new(principal, time_required, mechanism)
     }
 }
 impl<T> Drop for Credentials<T> {

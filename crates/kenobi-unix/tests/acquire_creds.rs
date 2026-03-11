@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use kenobi_unix::{
+    Mechanism,
     client::{ClientContext, StepOut},
     cred::Credentials,
 };
@@ -9,7 +10,7 @@ use kenobi_unix::{
 fn main() {
     let client_name = std::env::var("KERBEROS_TEST_USER_PRINCIPAL").ok();
     let service_principal = std::env::var("KERBEROS_TEST_SERVICE_PRINCIPAL").ok();
-    let cred = match Credentials::outbound(client_name.as_deref(), None) {
+    let cred = match Credentials::outbound(client_name.as_deref(), None, Mechanism::KerberosV5) {
         Ok(cred) => cred,
         Err(err) => {
             eprintln!("Error: {err}");

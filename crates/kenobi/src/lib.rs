@@ -8,9 +8,9 @@ pub mod cred {
 
     pub use kenobi_core::cred::usage::{Both, Inbound, InboundUsable, Outbound, OutboundUsable};
     #[cfg(unix)]
-    use kenobi_unix::cred::Credentials as UnixCred;
-    #[cfg(unix)]
     pub use kenobi_unix::cred::CredentialsUsage;
+    #[cfg(unix)]
+    use kenobi_unix::{Mechanism, cred::Credentials as UnixCred};
     #[cfg(windows)]
     use kenobi_windows::cred::Credentials as WinCred;
     #[cfg(windows)]
@@ -54,11 +54,11 @@ pub mod cred {
         /// Grab the default credentials handle for a given principal (or the default user principal)
         ///
         /// On windows, this will use the current security context, and on Unix, this will use the default Keytab/ticket store
-        pub fn new(principal: Option<&str>) -> Result<Self, CredentialsError> {
+        pub fn new(principal: Option<&str>, mechanism: Mechanism) -> Result<Self, CredentialsError> {
             #[cfg(windows)]
-            let inner = WinCred::acquire_default(principal).map_err(|win| CredentialsError { win })?;
+            let inner = WinCred::acquire_default(principal, mechanism).map_err(|win| CredentialsError { win })?;
             #[cfg(unix)]
-            let inner = UnixCred::new(principal, None).map_err(|unix| CredentialsError { unix })?;
+            let inner = UnixCred::new(principal, None, mechanism).map_err(|unix| CredentialsError { unix })?;
             Ok(Self {
                 inner: Arc::new(inner),
                 _marker: PhantomData,
@@ -69,8 +69,8 @@ pub mod cred {
         }
     }
     impl Credentials<Outbound> {
-        pub fn outbound(principal: Option<&str>) -> Result<Self, CredentialsError> {
-            Self::new(principal)
+        pub fn outbound(principal: Option<&str>, mechanism: Mechanism) -> Result<Self, CredentialsError> {
+            Self::new(principal, mechanism)
         }
     }
 }
@@ -83,3 +83,4 @@ pub mod typestate {
         Signing,
     };
 }
+pub use kenobi_core::mech;
