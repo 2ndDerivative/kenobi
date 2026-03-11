@@ -4,7 +4,7 @@ default-members = ["crates/kenobi"]
 members = ["./crates/*"]
 
 [workspace.package]
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Niclas Klugmann <niclas@klugmann.de>"]
 license = "MIT"
 keywords = ["authentication", "kerberos", "ntlm", "gssapi", "sspi"]
