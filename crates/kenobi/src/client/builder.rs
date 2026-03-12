@@ -37,8 +37,8 @@ impl<Usage: OutboundUsable> ClientBuilder<Usage> {
 
 impl<Usage> ClientBuilder<Usage> {
     #[must_use]
-    pub fn offer_mutual_auth(self) -> Self {
-        let inner = { self.inner.offer_mutual_auth() };
+    pub fn request_mutual_auth(self) -> Self {
+        let inner = { self.inner.request_mutual_auth() };
         ClientBuilder { inner }
     }
     #[must_use]

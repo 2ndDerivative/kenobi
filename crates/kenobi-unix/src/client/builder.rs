@@ -36,7 +36,7 @@ impl<CU> ClientBuilder<CU> {
         self.flags.add_flag(flags);
         self
     }
-    pub fn offer_mutual_auth(self) -> Self {
+    pub fn request_mutual_auth(self) -> Self {
         self.with_flag(CapabilityFlags::MUTUAL_AUTH)
     }
     pub fn request_signing(self) -> Self {
