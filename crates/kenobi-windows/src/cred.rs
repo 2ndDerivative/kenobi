@@ -95,16 +95,13 @@ pub struct Credentials<Usage> {
     _usage: PhantomData<Usage>,
 }
 impl<Usage: CredentialsUsage> Credentials<Usage> {
-    pub fn acquire(principal: Option<&str>, mechanism: Mechanism) -> Result<Credentials<Usage>, Error> {
-        Credentials::acquire_pure_kerberos(principal)
-    }
     pub fn acquire_negotiate(principal: Option<&str>) -> Result<Credentials<Usage>, Error> {
         Credentials::acquire(principal, Mechanism::Spnego)
     }
     pub fn acquire_pure_kerberos(principal: Option<&str>) -> Result<Credentials<Usage>, Error> {
         Credentials::acquire(principal, Mechanism::KerberosV5)
     }
-    fn acquire(principal: Option<&str>, mechanism: Mechanism) -> Result<Credentials<Usage>, Error> {
+    pub fn acquire(principal: Option<&str>, mechanism: Mechanism) -> Result<Credentials<Usage>, Error> {
         let mut handle = SecHandle::default();
         let mut expiry_ticks = 0;
         let princ_wide = principal.map(crate::to_wide);

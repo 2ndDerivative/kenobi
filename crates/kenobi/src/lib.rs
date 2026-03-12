@@ -2,9 +2,8 @@ pub mod client;
 pub mod sign_encrypt;
 
 pub mod cred {
-    #[cfg(windows)]
     use std::sync::Arc;
-    use std::{marker::PhantomData, sync::Arc, time::Instant};
+    use std::{marker::PhantomData, time::Instant};
 
     pub use kenobi_core::{
         cred::usage::{Both, Inbound, InboundUsable, Outbound, OutboundUsable},
@@ -59,7 +58,7 @@ pub mod cred {
         /// On windows, this will use the current security context, and on Unix, this will use the default Keytab/ticket store
         pub fn new(principal: Option<&str>, mechanism: Mechanism) -> Result<Self, CredentialsError> {
             #[cfg(windows)]
-            let inner = WinCred::acquire_default(principal, mechanism).map_err(|win| CredentialsError { win })?;
+            let inner = WinCred::acquire(principal, mechanism).map_err(|win| CredentialsError { win })?;
             #[cfg(unix)]
             let inner = UnixCred::new(principal, None, mechanism).map_err(|unix| CredentialsError { unix })?;
             Ok(Self {

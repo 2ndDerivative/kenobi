@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
+use kenobi_core::mech::Mechanism;
 use kenobi_windows::{client::ClientBuilder, cred::Credentials};
 
 fn main() {
-    let cred = Arc::new(Credentials::outbound(None).unwrap());
+    let cred = Arc::new(Credentials::outbound(None, Mechanism::KerberosV5).unwrap());
 
     let ctx_a = ClientBuilder::new_from_credentials(cred.clone(), Some("test/example.com")).allow_delegation();
     let ctx_b = ClientBuilder::new_from_credentials(cred, Some("test/other.example.com"))

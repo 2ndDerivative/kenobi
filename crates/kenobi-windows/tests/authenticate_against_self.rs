@@ -3,6 +3,7 @@ use std::sync::{
     mpsc::{Receiver, Sender, channel},
 };
 
+use kenobi_core::mech::Mechanism;
 use kenobi_windows::{
     client::{ClientBuilder, StepOut as ClientStepOut},
     cred::Credentials,
@@ -30,7 +31,9 @@ fn main() {
         server(recv, return_send, &p)
     });
 
-    let creds = Credentials::outbound(Some(&client_principal)).unwrap().into();
+    let creds = Credentials::outbound(Some(&client_principal), Mechanism::KerberosV5)
+        .unwrap()
+        .into();
     let ClientStepOut::Pending(mut client) = ClientBuilder::new_from_credentials(creds, Some(&server_principal))
         .request_signing()
         .request_encryption()
@@ -81,7 +84,7 @@ fn main() {
 }
 
 fn server(recv: Receiver<Message>, return_sender: Sender<Vec<u8>>, _principal: &str) {
-    let server_cred = Credentials::inbound(Some(_principal)).unwrap();
+    let server_cred = Credentials::inbound(Some(_principal), Mechanism::KerberosV5).unwrap();
     eprintln!("[SERVER] Waiting for token");
     let mut token = match recv.recv().unwrap() {
         Message::Token(outgoing_payload) => outgoing_payload,
