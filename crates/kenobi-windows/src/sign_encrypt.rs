@@ -42,14 +42,8 @@ impl ContextHandle {
             cBuffers: buffers.len() as u32,
             pBuffers: buffers.as_mut_ptr(),
         };
-        let res = unsafe {
-            EncryptMessage(
-                self.as_ptr(),
-                if encrypt { 0 } else { SECQOP_WRAP_NO_ENCRYPT },
-                &sec_buffer,
-                0,
-            )
-        };
+        let qop = if encrypt { 0 } else { SECQOP_WRAP_NO_ENCRYPT };
+        let res = unsafe { EncryptMessage(self.as_ptr(), qop, &sec_buffer, 0) };
         match res {
             HRESULT(0) => {
                 let header_sl = &header[..buffers[0].cbBuffer as usize];
