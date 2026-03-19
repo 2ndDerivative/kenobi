@@ -1,6 +1,6 @@
 [package]
 name = "kenobi-windows"
-version = "0.1.1"
+version = "0.2.0"
 description = "A Windows Negotiate implementation."
 authors.workspace = true
 license.workspace = true
@@ -9,7 +9,7 @@ edition.workspace = true
 repository.workspace = true
 
 [dependencies]
-kenobi-core = { version = "0.1.0", path = "../kenobi-core" }
+kenobi-core = { version = "0.2", path = "../kenobi-core" }
 windows-result = "0.4.1"
 
 [dependencies.windows]
