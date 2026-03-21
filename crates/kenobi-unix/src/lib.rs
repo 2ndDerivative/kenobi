@@ -3,6 +3,7 @@ pub mod client;
 mod context;
 pub mod cred;
 mod error;
+pub mod server;
 
 use std::ffi::c_void;
 
