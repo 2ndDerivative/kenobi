@@ -11,7 +11,7 @@ impl ContextHandle {
     pub fn leak(self) -> SecHandle {
         ManuallyDrop::new(self).0
     }
-    pub unsafe fn pick_up(sec: SecHandle) -> Self {
+    pub unsafe fn from_raw(sec: SecHandle) -> Self {
         Self(sec)
     }
     pub fn as_mut_ptr(&mut self) -> *mut SecHandle {

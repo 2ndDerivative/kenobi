@@ -39,7 +39,7 @@ pub struct ServerContext<Usage, S, E, D> {
     attributes: u32,
     /// should never be resized
     token_buffer: NonResizableVec,
-    _enc: PhantomData<(D, E, S)>,
+    _enc: PhantomData<(S, E, D)>,
 }
 impl<Usage: InboundUsable, S, E, D> ServerContext<Usage, S, E, D>
 where

@@ -246,7 +246,7 @@ fn step<Usage: OutboundUsable>(
     token_buffer.set_length(out_token_buffer.cbBuffer);
     match hres {
         SEC_E_OK => {
-            let context = unsafe { ContextHandle::pick_up(*out_sec_handle) };
+            let context = unsafe { ContextHandle::from_raw(*out_sec_handle) };
             Ok(StepOut::Completed(ClientContext {
                 attributes,
                 cred,
@@ -259,7 +259,7 @@ fn step<Usage: OutboundUsable>(
             panic!("CompleteAuthToken is not supported by Negotiate")
         }
         SEC_I_CONTINUE_NEEDED => {
-            let context = unsafe { ContextHandle::pick_up(*out_sec_handle) };
+            let context = unsafe { ContextHandle::from_raw(*out_sec_handle) };
             Ok(StepOut::Pending(PendingClientContext {
                 target_spn,
                 cred,

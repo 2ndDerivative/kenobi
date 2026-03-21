@@ -55,7 +55,7 @@ mod handle {
     impl CredentialsHandle {
         /// # Safety
         /// SecHandle must refer (and be the only one referring to) a valid freeable credentials handle
-        pub unsafe fn pick_up(sec: SecHandle) -> Self {
+        pub unsafe fn from_raw(sec: SecHandle) -> Self {
             Self(sec)
         }
         pub fn as_raw_handle(&self) -> &SecHandle {
@@ -127,7 +127,7 @@ impl<Usage: CredentialsUsage> Credentials<Usage> {
         let valid_until = Instant::now() + expiry.duration_since(SystemTime::now()).unwrap_or(Duration::ZERO);
         match res {
             Ok(()) => {
-                let handle = unsafe { CredentialsHandle::pick_up(handle) };
+                let handle = unsafe { CredentialsHandle::from_raw(handle) };
                 Ok(Self {
                     handle,
                     mechanism,
