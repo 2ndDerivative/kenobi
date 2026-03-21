@@ -138,6 +138,8 @@ impl AsRef<[u8]> for Signed {
 }
 
 struct SecurityBuffer(gss_buffer_desc);
+unsafe impl Send for SecurityBuffer {}
+unsafe impl Sync for SecurityBuffer {}
 impl Drop for SecurityBuffer {
     fn drop(&mut self) {
         let mut _min = 0;
