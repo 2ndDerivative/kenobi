@@ -1,5 +1,6 @@
 use std::{
     ffi::c_void,
+    fmt::Display,
     marker::PhantomData,
     ptr::{self, NonNull},
     sync::Arc,
@@ -12,10 +13,11 @@ use kenobi_core::{
 };
 use libgssapi_sys::{
     GSS_C_CONF_FLAG, GSS_C_INTEG_FLAG, GSS_S_COMPLETE, GSS_S_CONTINUE_NEEDED, gss_accept_sec_context,
-    gss_buffer_desc_struct,
+    gss_buffer_desc_struct, gss_inquire_context,
 };
 
 use crate::{
+    Error,
     buffer::{Token, as_channel_bindings, empty_token},
     context::ContextHandle,
     cred::Credentials,
@@ -46,6 +48,34 @@ impl<CU, S, E, D> ServerContext<CU, S, E, D> {
     }
     pub fn last_token(&self) -> Option<&[u8]> {
         self.last_token.as_ref().map(|t| t.as_slice())
+    }
+    pub fn client_upn(&mut self) -> Result<impl Display + Send + Sync, Error> {
+        let mut min = 0;
+        let mut initiator_name = ptr::null_mut();
+        let maj = unsafe {
+            gss_inquire_context(
+                &mut min,
+                self.context.as_mut(),
+                &mut initiator_name,
+                ptr::null_mut(),
+                ptr::null_mut(),
+                ptr::null_mut(),
+                ptr::null_mut(),
+                ptr::null_mut(),
+                ptr::null_mut(),
+            )
+        };
+        if let Some(err) = Error::gss(maj) {
+            return Err(err);
+        }
+        if let Some(err_min) = Error::mechanism(min) {
+            return Err(err_min);
+        }
+        let Some(nn_name) = NonNull::new(initiator_name) else {
+            panic!("gss returned null pointer despite okay value");
+        };
+        let name = unsafe { NameHandle::from_raw(nn_name) };
+        Ok(name)
     }
 }
 impl<CU, E, D> ServerContext<CU, MaybeSigning, E, D> {

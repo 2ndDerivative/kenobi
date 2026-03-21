@@ -24,6 +24,9 @@ impl NameHandle {
         let name = unsafe { import_name(principal, oid)? };
         Ok(NameHandle { name })
     }
+    pub(crate) unsafe fn from_raw(name: NonNull<gss_name_struct>) -> Self {
+        Self { name }
+    }
     pub fn as_mut(&mut self) -> *mut gss_name_struct {
         self.name.as_ptr()
     }
