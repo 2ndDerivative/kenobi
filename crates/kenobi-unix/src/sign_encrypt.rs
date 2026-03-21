@@ -6,7 +6,7 @@ use libgssapi_sys::{GSS_C_QOP_DEFAULT, gss_buffer_desc, gss_ctx_id_struct, gss_r
 use crate::{Error, client::ClientContext};
 
 impl<CU, C, E, D> ClientContext<CU, C, E, D> {
-    fn wrap(&self, encrypt: bool, message: &[u8]) -> Result<SecurityBuffer, Error> {
+    fn wrap(&mut self, encrypt: bool, message: &[u8]) -> Result<SecurityBuffer, Error> {
         let mut minor = 0;
         let mut input_buffer_desc = gss_buffer_desc {
             length: message.len(),
@@ -71,11 +71,11 @@ impl<CU, C, E, D> ClientContext<CU, C, E, D> {
 }
 
 impl<CU, E, D> ClientContext<CU, Signing, E, D> {
-    pub fn sign(&self, message: &[u8]) -> Result<Signed, Error> {
+    pub fn sign(&mut self, message: &[u8]) -> Result<Signed, Error> {
         self.wrap(false, message).map(Signed)
     }
 
-    pub fn unwrap(&self, message: &[u8]) -> Result<Plaintext, Error> {
+    pub fn unwrap(&mut self, message: &[u8]) -> Result<Plaintext, Error> {
         let (buffer, conf_state) = self.unwrap_raw(message)?;
         Ok(Plaintext {
             buffer,
@@ -84,7 +84,7 @@ impl<CU, E, D> ClientContext<CU, Signing, E, D> {
     }
 }
 impl<CU, S, D> ClientContext<CU, S, Encryption, D> {
-    pub fn encrypt(&self, message: &[u8]) -> Result<Encrypted, Error> {
+    pub fn encrypt(&mut self, message: &[u8]) -> Result<Encrypted, Error> {
         self.wrap(true, message).map(Encrypted)
     }
 }
