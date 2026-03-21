@@ -1,4 +1,8 @@
-use std::{ffi::c_void, ops::Deref};
+use std::{
+    ffi::c_void,
+    fmt::{Debug, Formatter, Result as FmtResult},
+    ops::Deref,
+};
 
 use libgssapi_sys::{GSS_C_QOP_DEFAULT, gss_buffer_desc, gss_ctx_id_struct, gss_release_buffer, gss_unwrap, gss_wrap};
 
@@ -74,6 +78,7 @@ pub(crate) fn unwrap_raw(ctx: &ContextHandle, message: &[u8]) -> Result<Plaintex
     Ok(Plaintext::new(SecurityBuffer(output_buffer), conf_state != 0))
 }
 
+#[derive(Debug)]
 pub struct Plaintext {
     buffer: SecurityBuffer,
     was_encrypted: bool,
@@ -98,6 +103,7 @@ impl Plaintext {
     }
 }
 
+#[derive(Debug)]
 pub struct Encrypted(SecurityBuffer);
 impl Encrypted {
     pub fn as_slice(&self) -> &[u8] {
@@ -115,6 +121,7 @@ impl AsRef<[u8]> for Encrypted {
         self.as_slice()
     }
 }
+#[derive(Debug)]
 pub struct Signed(SecurityBuffer);
 impl Signed {
     pub fn as_slice(&self) -> &[u8] {
@@ -130,6 +137,11 @@ impl AsRef<[u8]> for Signed {
 struct SecurityBuffer(gss_buffer_desc);
 unsafe impl Send for SecurityBuffer {}
 unsafe impl Sync for SecurityBuffer {}
+impl Debug for SecurityBuffer {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        self.as_slice().fmt(f)
+    }
+}
 impl Drop for SecurityBuffer {
     fn drop(&mut self) {
         let mut _min = 0;
