@@ -8,9 +8,12 @@ use std::{
 
 use kenobi_core::{
     cred::usage::{InboundUsable, Outbound},
-    typestate::{Encryption, MaybeDelegation, MaybeEncryption, MaybeSigning, Signing},
+    typestate::{Encryption, MaybeDelegation, MaybeEncryption, MaybeSigning, NoEncryption, NoSigning, Signing},
 };
-use libgssapi_sys::{GSS_S_COMPLETE, GSS_S_CONTINUE_NEEDED, gss_accept_sec_context, gss_buffer_desc_struct};
+use libgssapi_sys::{
+    GSS_C_CONF_FLAG, GSS_C_INTEG_FLAG, GSS_S_COMPLETE, GSS_S_CONTINUE_NEEDED, gss_accept_sec_context,
+    gss_buffer_desc_struct,
+};
 
 use crate::{
     buffer::{Token, as_channel_bindings, empty_token},
@@ -31,8 +34,40 @@ pub struct ServerContext<Usage, S, E, D> {
     _enc: PhantomData<(S, E, D)>,
 }
 impl<CU, S, E, D> ServerContext<CU, S, E, D> {
+    fn change_policy<S2, E2, D2>(self) -> ServerContext<CU, S2, E2, D2> {
+        ServerContext {
+            cred: self.cred,
+            context: self.context,
+            attributes: self.attributes,
+            last_token: self.last_token,
+            delegated_creds: self.delegated_creds,
+            _enc: PhantomData,
+        }
+    }
     pub fn last_token(&self) -> Option<&[u8]> {
         self.last_token.as_ref().map(|t| t.as_slice())
+    }
+}
+impl<CU, E, D> ServerContext<CU, MaybeSigning, E, D> {
+    #[allow(clippy::type_complexity)]
+    pub fn check_signing(self) -> Result<ServerContext<CU, Signing, E, D>, ServerContext<CU, NoSigning, E, D>> {
+        if self.attributes & GSS_C_INTEG_FLAG != 0 {
+            Ok(self.change_policy())
+        } else {
+            Err(self.change_policy())
+        }
+    }
+}
+impl<CU, S, D> ServerContext<CU, S, MaybeEncryption, D> {
+    #[allow(clippy::type_complexity)]
+    pub fn check_encryption(
+        self,
+    ) -> Result<ServerContext<CU, S, Encryption, D>, ServerContext<CU, S, NoEncryption, D>> {
+        if self.attributes & GSS_C_CONF_FLAG != 0 {
+            Ok(self.change_policy())
+        } else {
+            Err(self.change_policy())
+        }
     }
 }
 

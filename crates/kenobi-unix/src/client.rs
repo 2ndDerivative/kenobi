@@ -15,7 +15,6 @@ use libgssapi_sys::{
 use crate::{
     Error,
     buffer::{Token, as_channel_bindings, empty_token},
-    client::typestate::{delegation::Sealed as _, encrypt::Sealed as _, sign::Sealed as _},
     context::{ContextHandle, SessionKey},
     cred::Credentials,
     error::{GssErrorCode, MechanismErrorCode},
@@ -50,7 +49,7 @@ impl<CU: OutboundUsable> ClientContext<CU, NoSigning, NoEncryption, NoDelegation
 impl<CU, E, D> ClientContext<CU, MaybeSigning, E, D> {
     #[allow(clippy::type_complexity)]
     pub fn check_signing(self) -> Result<ClientContext<CU, Signing, E, D>, ClientContext<CU, NoSigning, E, D>> {
-        if self.attributes & MaybeSigning::REQUESTED_FLAGS != 0 {
+        if self.attributes & GSS_C_INTEG_FLAG != 0 {
             Ok(self.change_policy())
         } else {
             Err(self.change_policy())
@@ -62,7 +61,7 @@ impl<CU, S, D> ClientContext<CU, S, MaybeEncryption, D> {
     pub fn check_encryption(
         self,
     ) -> Result<ClientContext<CU, S, Encryption, D>, ClientContext<CU, S, NoEncryption, D>> {
-        if self.attributes & MaybeEncryption::REQUESTED_FLAGS != 0 {
+        if self.attributes & GSS_C_CONF_FLAG != 0 {
             Ok(self.change_policy())
         } else {
             Err(self.change_policy())
@@ -74,7 +73,7 @@ impl<CU, S, E> ClientContext<CU, S, E, MaybeDelegation> {
     pub fn check_delegation(
         self,
     ) -> Result<ClientContext<CU, S, E, Delegation>, ClientContext<CU, S, E, NoDelegation>> {
-        if self.attributes & MaybeDelegation::REQUESTED_FLAGS != 0 {
+        if self.attributes & GSS_C_DELEG_FLAG != 0 {
             Ok(self.change_policy())
         } else {
             Err(self.change_policy())
