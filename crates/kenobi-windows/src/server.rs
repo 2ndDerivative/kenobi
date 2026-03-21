@@ -1,4 +1,10 @@
-use std::{ffi::c_void, marker::PhantomData, sync::Arc};
+use std::{
+    ffi::c_void,
+    fmt::Display,
+    marker::PhantomData,
+    ptr::{self, NonNull},
+    sync::Arc,
+};
 
 use windows::Win32::{
     Foundation::{
@@ -7,15 +13,16 @@ use windows::Win32::{
     },
     Security::Authentication::Identity::{
         ASC_REQ_CONFIDENTIALITY, ASC_REQ_DELEGATE, ASC_REQ_FLAGS, ASC_REQ_INTEGRITY, ASC_REQ_MUTUAL_AUTH,
-        AcceptSecurityContext, SEC_CHANNEL_BINDINGS, SECBUFFER_CHANNEL_BINDINGS, SECBUFFER_TOKEN, SECBUFFER_VERSION,
-        SECURITY_NATIVE_DREP, SecBuffer, SecBufferDesc,
+        AcceptSecurityContext, QueryContextAttributesW, SEC_CHANNEL_BINDINGS, SECBUFFER_CHANNEL_BINDINGS,
+        SECBUFFER_TOKEN, SECBUFFER_VERSION, SECPKG_ATTR_NATIVE_NAMES, SECURITY_NATIVE_DREP, SecBuffer, SecBufferDesc,
+        SecPkgContext_NativeNamesW,
     },
 };
 
 use kenobi_core::{cred::usage::InboundUsable, flags::CapabilityFlags};
 
 use crate::{
-    buffer::NonResizableVec,
+    buffer::{NativeNamesHandle, NonResizableVec},
     context::ContextHandle,
     cred::Credentials,
     server::typestate::{DelegationPolicy, EncryptionPolicy, SigningPolicy},
@@ -62,6 +69,14 @@ where
 impl<Usage, S, E, D> ServerContext<Usage, S, E, D> {
     pub fn last_token(&self) -> Option<&[u8]> {
         (!self.token_buffer.is_empty()).then_some(&self.token_buffer)
+    }
+    pub fn client_name(&self) -> Result<impl Display + Send + Sync, windows_result::Error> {
+        let names: *mut SecPkgContext_NativeNamesW = ptr::null_mut();
+        unsafe { QueryContextAttributesW(self.context.as_ptr(), SECPKG_ATTR_NATIVE_NAMES, names.cast())? }
+        let Some(nn_names) = NonNull::new(names) else {
+            panic!("context send null pointer")
+        };
+        Ok(unsafe { NativeNamesHandle::from_raw(nn_names) }.client())
     }
 }
 impl<Usage, E, D> ServerContext<Usage, Signing, E, D> {
@@ -190,7 +205,7 @@ fn step<Usage: InboundUsable>(
         };
         let mut buffer = vec![0u8; 32 + cb.len()];
         unsafe {
-            std::ptr::write(buffer.as_mut_ptr() as *mut SEC_CHANNEL_BINDINGS, scb);
+            std::ptr::write(buffer.as_mut_ptr().cast(), scb);
         }
         buffer[32..].copy_from_slice(cb);
         buffer

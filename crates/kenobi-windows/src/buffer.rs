@@ -1,6 +1,11 @@
-use std::{ffi::c_void, ops::Deref, sync::LazyLock};
+use std::{ffi::c_void, ops::Deref, ptr::NonNull, sync::LazyLock};
 
-use windows::Win32::Security::Authentication::Identity::{FreeContextBuffer, QuerySecurityPackageInfoW, SecBuffer};
+use windows::{
+    Win32::Security::Authentication::Identity::{
+        FreeContextBuffer, QuerySecurityPackageInfoW, SecBuffer, SecPkgContext_NativeNamesW,
+    },
+    core::PCWSTR,
+};
 
 use crate::NEGOTIATE;
 
@@ -65,3 +70,26 @@ impl Drop for NonResizableVec {
         let _ = unsafe { Box::from_raw(self.arr.as_mut_ptr()) };
     }
 }
+
+pub struct NativeNamesHandle(NonNull<SecPkgContext_NativeNamesW>);
+impl NativeNamesHandle {
+    pub fn client(&self) -> String {
+        let client = unsafe { *self.0.as_ptr() }.sClientName;
+        unsafe { PCWSTR(client).to_string() }.expect("name returned was not UTF-16 compatible")
+    }
+    #[expect(dead_code)]
+    pub fn server(&self) -> String {
+        let server = unsafe { *self.0.as_ptr() }.sServerName;
+        unsafe { PCWSTR(server).to_string() }.expect("name returned was not UTF-16 compatible")
+    }
+    pub(crate) unsafe fn from_raw(handle: NonNull<SecPkgContext_NativeNamesW>) -> Self {
+        Self(handle)
+    }
+}
+impl Drop for NativeNamesHandle {
+    fn drop(&mut self) {
+        let _ = unsafe { FreeContextBuffer(self.0.as_ptr().cast()) };
+    }
+}
+unsafe impl Send for NativeNamesHandle {}
+unsafe impl Sync for NativeNamesHandle {}

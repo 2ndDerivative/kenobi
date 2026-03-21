@@ -49,7 +49,7 @@ impl<CU, S, E, D> ServerContext<CU, S, E, D> {
     pub fn last_token(&self) -> Option<&[u8]> {
         self.last_token.as_ref().map(|t| t.as_slice())
     }
-    pub fn client_upn(&mut self) -> Result<impl Display + Send + Sync, Error> {
+    pub fn client_name(&mut self) -> Result<impl Display + Send + Sync, Error> {
         let mut min = 0;
         let mut initiator_name = ptr::null_mut();
         let maj = unsafe {
