@@ -77,6 +77,8 @@ impl<Usage: CredentialsUsage> Credentials<Usage> {
             _usage: PhantomData,
         })
     }
+}
+impl<Usage> Credentials<Usage> {
     pub fn mechanism(&self) -> Mechanism {
         self.mechanism
     }
