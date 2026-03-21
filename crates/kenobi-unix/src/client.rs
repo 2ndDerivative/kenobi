@@ -21,6 +21,7 @@ use crate::{
     error::{GssErrorCode, MechanismErrorCode},
     mech_kerberos,
     name::NameHandle,
+    sign_encrypt::{Encrypted, Plaintext, Signed, encrypt, sign, unwrap_raw},
 };
 mod builder;
 mod typestate;
@@ -35,7 +36,7 @@ pub use typestate::{DelegationPolicy, EncryptionPolicy, SignPolicy};
 pub struct ClientContext<CU, S, E, D> {
     attributes: u32,
     cred: Arc<Credentials<CU>>,
-    pub(crate) context: ContextHandle,
+    context: ContextHandle,
     next_token: Option<Token>,
     marker: PhantomData<(S, E, D)>,
 }
@@ -95,6 +96,21 @@ impl<CU, S1, E1, D1> ClientContext<CU, S1, E1, D1> {
     }
     pub fn session_key(&self) -> Result<SessionKey, Error> {
         self.context.session_key()
+    }
+}
+
+impl<CU, E, D> ClientContext<CU, Signing, E, D> {
+    pub fn sign(&self, message: &[u8]) -> Result<Signed, Error> {
+        sign(&self.context, message)
+    }
+
+    pub fn unwrap(&self, message: &[u8]) -> Result<Plaintext, Error> {
+        unwrap_raw(&self.context, message)
+    }
+}
+impl<CU, S, D> ClientContext<CU, S, Encryption, D> {
+    pub fn encrypt(&self, message: &[u8]) -> Result<Encrypted, Error> {
+        encrypt(&self.context, message)
     }
 }
 

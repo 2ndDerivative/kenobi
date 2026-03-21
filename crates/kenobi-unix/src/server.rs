@@ -8,7 +8,7 @@ use std::{
 
 use kenobi_core::{
     cred::usage::{InboundUsable, Outbound},
-    typestate::{MaybeDelegation, MaybeEncryption, MaybeSigning},
+    typestate::{Encryption, MaybeDelegation, MaybeEncryption, MaybeSigning, Signing},
 };
 use libgssapi_sys::{GSS_S_COMPLETE, GSS_S_CONTINUE_NEEDED, gss_accept_sec_context, gss_buffer_desc_struct};
 
@@ -17,15 +17,33 @@ use crate::{
     context::ContextHandle,
     cred::Credentials,
     name::NameHandle,
+    sign_encrypt::{Encrypted, Plaintext, Signed, encrypt, sign, unwrap_raw},
 };
+pub use builder::ServerBuilder;
+mod builder;
 
 pub struct ServerContext<Usage, S, E, D> {
     cred: Arc<Credentials<Usage>>,
-    pub(crate) context: ContextHandle,
+    context: ContextHandle,
     attributes: u32,
     last_token: Option<Token>,
     delegated_creds: Option<Credentials<Outbound>>,
     _enc: PhantomData<(S, E, D)>,
+}
+
+impl<CU, E, D> ServerContext<CU, Signing, E, D> {
+    pub fn sign(&self, message: &[u8]) -> Result<Signed, crate::Error> {
+        sign(&self.context, message)
+    }
+
+    pub fn unwrap(&self, message: &[u8]) -> Result<Plaintext, crate::Error> {
+        unwrap_raw(&self.context, message)
+    }
+}
+impl<CU, S, D> ServerContext<CU, S, Encryption, D> {
+    pub fn encrypt(&self, message: &[u8]) -> Result<Encrypted, crate::Error> {
+        encrypt(&self.context, message)
+    }
 }
 
 pub struct PendingServerContext<CU> {
