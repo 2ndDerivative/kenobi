@@ -19,9 +19,9 @@ impl<Usage> ClientBuilder<Usage> {
 }
 
 #[cfg(windows)]
-impl<Usage> ClientBuilder<Usage> {
+impl<Usage: OutboundUsable> ClientBuilder<Usage> {
     #[must_use]
-    pub fn new_from_credentials(cred: Credentials<Usage>, target_principal: Option<&str>) -> ClientBuilder<Usage> {
+    pub fn new_from_credentials(cred: Credentials<Usage>, target_principal: Option<&str>) -> Self {
         let inner = kenobi_windows::client::ClientBuilder::new_from_credentials(cred.inner, target_principal);
         ClientBuilder { inner }
     }

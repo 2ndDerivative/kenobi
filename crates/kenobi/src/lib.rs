@@ -1,4 +1,5 @@
 pub mod client;
+pub mod server;
 pub mod sign_encrypt;
 
 pub mod cred {

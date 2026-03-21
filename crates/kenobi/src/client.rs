@@ -139,15 +139,8 @@ pub struct PendingClientContext<Usage> {
     inner: UnixPendingClientContext<Usage>,
 }
 
-#[cfg(windows)]
 impl<Usage> PendingClientContext<Usage> {
     #[must_use]
-    pub fn next_token(&self) -> &[u8] {
-        self.inner.next_token()
-    }
-}
-#[cfg(unix)]
-impl<Usage> PendingClientContext<Usage> {
     pub fn next_token(&self) -> &[u8] {
         self.inner.next_token()
     }
