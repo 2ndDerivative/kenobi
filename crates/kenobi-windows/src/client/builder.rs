@@ -18,13 +18,13 @@ pub struct ClientBuilder<Usage> {
     channel_bindings: Option<Box<[u8]>>,
 }
 impl<Usage> Debug for ClientBuilder<Usage> {
-    fn fmt(&self, mut f: Formatter<'_>) -> FmtResult {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         f.debug_struct("ClientBuilder")
             .field("cred", &self.cred)
             .field("flags", &self.flags)
             .field(
                 "target_principal",
-                &self.target_principal.map(|b| String::from_utf16_lossy(&b)),
+                &self.target_principal.as_ref().map(|b| String::from_utf16_lossy(b)),
             )
             .field("channel_bindings", &self.channel_bindings)
             .finish()

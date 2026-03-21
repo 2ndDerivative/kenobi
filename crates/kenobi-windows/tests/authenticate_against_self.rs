@@ -71,7 +71,7 @@ fn main() {
         panic!("Signing not possible")
     };
 
-    let Ok(finished_ctx) = finished_ctx.check_encryption() else {
+    let Ok(mut finished_ctx) = finished_ctx.check_encryption() else {
         panic!("Encryption not possible")
     };
 
@@ -122,7 +122,7 @@ fn server(recv: Receiver<Message>, return_sender: Sender<Vec<u8>>, _principal: &
         return_sender.send(token.to_vec()).unwrap();
         eprintln!("[SERVER] Mutual auth token sent");
     }
-    let Ok(my_server_ctx) = my_server_ctx.check_signing() else {
+    let Ok(mut my_server_ctx) = my_server_ctx.check_signing() else {
         panic!("Didn't negotiate signing");
     };
 

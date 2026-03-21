@@ -1,5 +1,5 @@
 use std::{
-    fmt::{Debug, Formatter, Result as FmtResult},
+    fmt::{Debug, Display, Formatter, Result as FmtResult},
     marker::PhantomData,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
@@ -32,9 +32,9 @@ use windows::{
 #[derive(Debug)]
 pub struct Error(windows_result::Error);
 impl std::error::Error for Error {}
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(f)
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        <windows_result::Error as Display>::fmt(&self.0, f)
     }
 }
 
