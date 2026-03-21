@@ -10,11 +10,10 @@ use crate::Error;
 pub(crate) struct ContextHandle(NonNull<gss_ctx_id_struct>);
 // Does not expose a mutable interface and is (supposed to be) sole owner of the underlying context handle
 unsafe impl Send for ContextHandle {}
-unsafe impl Sync for ContextHandle {}
 impl ContextHandle {
     /// # Safety
     /// Pointer must be a valid living security context
-    pub unsafe fn pick_up(ctx: NonNull<gss_ctx_id_struct>) -> Self {
+    pub unsafe fn from_raw(ctx: NonNull<gss_ctx_id_struct>) -> Self {
         Self(ctx)
     }
     pub fn as_mut(&mut self) -> *mut gss_ctx_id_struct {
