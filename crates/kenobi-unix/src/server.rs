@@ -20,7 +20,7 @@ use crate::{
     context::ContextHandle,
     cred::Credentials,
     name::NameHandle,
-    sign_encrypt::{Encrypted, Plaintext, Signed, encrypt, sign, unwrap_raw},
+    sign_encrypt,
 };
 pub use builder::ServerBuilder;
 mod builder;
@@ -72,17 +72,17 @@ impl<CU, S, D> ServerContext<CU, S, MaybeEncryption, D> {
 }
 
 impl<CU, E, D> ServerContext<CU, Signing, E, D> {
-    pub fn sign(&self, message: &[u8]) -> Result<Signed, crate::Error> {
-        sign(&self.context, message)
+    pub fn sign(&self, message: &[u8]) -> Result<sign_encrypt::Signed, crate::Error> {
+        sign_encrypt::sign(&self.context, message)
     }
 
-    pub fn unwrap(&self, message: &[u8]) -> Result<Plaintext, crate::Error> {
-        unwrap_raw(&self.context, message)
+    pub fn unwrap(&self, message: &[u8]) -> Result<sign_encrypt::Plaintext, crate::Error> {
+        sign_encrypt::unwrap_raw(&self.context, message)
     }
 }
 impl<CU, S, D> ServerContext<CU, S, Encryption, D> {
-    pub fn encrypt(&self, message: &[u8]) -> Result<Encrypted, crate::Error> {
-        encrypt(&self.context, message)
+    pub fn encrypt(&self, message: &[u8]) -> Result<sign_encrypt::Encrypted, crate::Error> {
+        sign_encrypt::encrypt(&self.context, message)
     }
 }
 

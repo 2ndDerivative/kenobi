@@ -20,7 +20,7 @@ use crate::{
     error::{GssErrorCode, MechanismErrorCode},
     mech_kerberos,
     name::NameHandle,
-    sign_encrypt::{Encrypted, Plaintext, Signed, encrypt, sign, unwrap_raw},
+    sign_encrypt,
 };
 mod builder;
 mod typestate;
@@ -99,17 +99,17 @@ impl<CU, S1, E1, D1> ClientContext<CU, S1, E1, D1> {
 }
 
 impl<CU, E, D> ClientContext<CU, Signing, E, D> {
-    pub fn sign(&self, message: &[u8]) -> Result<Signed, Error> {
-        sign(&self.context, message)
+    pub fn sign(&self, message: &[u8]) -> Result<sign_encrypt::Signed, Error> {
+        sign_encrypt::sign(&self.context, message)
     }
 
-    pub fn unwrap(&self, message: &[u8]) -> Result<Plaintext, Error> {
-        unwrap_raw(&self.context, message)
+    pub fn unwrap(&self, message: &[u8]) -> Result<sign_encrypt::Plaintext, Error> {
+        sign_encrypt::unwrap_raw(&self.context, message)
     }
 }
 impl<CU, S, D> ClientContext<CU, S, Encryption, D> {
-    pub fn encrypt(&self, message: &[u8]) -> Result<Encrypted, Error> {
-        encrypt(&self.context, message)
+    pub fn encrypt(&self, message: &[u8]) -> Result<sign_encrypt::Encrypted, Error> {
+        sign_encrypt::encrypt(&self.context, message)
     }
 }
 
