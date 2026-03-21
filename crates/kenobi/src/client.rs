@@ -111,23 +111,20 @@ impl<Usage, S: SigningState, D: DelegationState> ClientContext<Usage, S, MaybeEn
 }
 
 impl<Usage, E: EncryptionState, D: DelegationState> ClientContext<Usage, Signing, E, D> {
-    pub fn sign(&mut self, message: &[u8]) -> Result<Signature, WrapError> {
+    pub fn sign(&self, message: &[u8]) -> Result<Signature, WrapError> {
         Ok(Signature::from_inner(
             self.inner.sign(message).map_err(WrapError::from_inner)?,
         ))
     }
     pub fn unwrap(
-        &mut self,
+        &self,
         message: &[u8],
     ) -> Result<impl std::ops::Deref<Target = [u8]> + use<Usage, E, D>, UnwrapError> {
         self.inner.unwrap(message).map_err(UnwrapError::from_inner)
     }
 }
 impl<Usage, D: DelegationState> ClientContext<Usage, Signing, Encryption, D> {
-    pub fn encrypt(
-        &mut self,
-        message: &[u8],
-    ) -> Result<impl std::ops::Deref<Target = [u8]> + use<Usage, D>, WrapError> {
+    pub fn encrypt(&self, message: &[u8]) -> Result<impl std::ops::Deref<Target = [u8]> + use<Usage, D>, WrapError> {
         self.inner.encrypt(message).map_err(WrapError::from_inner)
     }
 }
