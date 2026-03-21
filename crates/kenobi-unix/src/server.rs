@@ -30,6 +30,11 @@ pub struct ServerContext<Usage, S, E, D> {
     delegated_creds: Option<Credentials<Outbound>>,
     _enc: PhantomData<(S, E, D)>,
 }
+impl<CU, S, E, D> ServerContext<CU, S, E, D> {
+    pub fn last_token(&self) -> Option<&[u8]> {
+        self.last_token.as_ref().map(|t| t.as_slice())
+    }
+}
 
 impl<CU, E, D> ServerContext<CU, Signing, E, D> {
     pub fn sign(&self, message: &[u8]) -> Result<Signed, crate::Error> {
