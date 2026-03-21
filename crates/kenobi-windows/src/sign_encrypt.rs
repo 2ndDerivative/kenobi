@@ -13,7 +13,7 @@ use windows_result::HRESULT;
 use crate::context::ContextHandle;
 
 impl ContextHandle {
-    fn wrap_raw(&self, encrypt: bool, message: &[u8]) -> windows_result::Result<Vec<u8>> {
+    fn wrap_raw(&mut self, encrypt: bool, message: &[u8]) -> windows_result::Result<Vec<u8>> {
         let sizes = get_context_sizes(self).expect("Failed to get context info");
 
         let mut header = vec![0u8; sizes.cbSecurityTrailer as usize];
@@ -56,15 +56,15 @@ impl ContextHandle {
         }
     }
     /// ONLY USE WITH FINISHED CONTEXT
-    pub(crate) fn wrap_sign(&self, message: &[u8]) -> windows_result::Result<Signature> {
+    pub(crate) fn wrap_sign(&mut self, message: &[u8]) -> windows_result::Result<Signature> {
         self.wrap_raw(false, message).map(Signature)
     }
     /// ONLY USED IN A FINISHED, ENCRYPTION-ALLOWED CONTEXT
-    pub(crate) fn wrap_encrypt(&self, message: &[u8]) -> windows_result::Result<Encrypted> {
+    pub(crate) fn wrap_encrypt(&mut self, message: &[u8]) -> windows_result::Result<Encrypted> {
         self.wrap_raw(true, message).map(Encrypted)
     }
 
-    pub(crate) fn unwrap(&self, message: &[u8]) -> Result<Plaintext, Altered> {
+    pub(crate) fn unwrap(&mut self, message: &[u8]) -> Result<Plaintext, Altered> {
         let mut input = message.to_vec();
 
         let mut buffers = vec![

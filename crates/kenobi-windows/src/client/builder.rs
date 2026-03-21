@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::{
+    fmt::{Debug, Formatter, Result as FmtResult},
+    sync::Arc,
+};
 
 use crate::{
     buffer::NonResizableVec,
@@ -13,6 +16,19 @@ pub struct ClientBuilder<Usage> {
     flags: CapabilityFlags,
     target_principal: Option<Box<[u16]>>,
     channel_bindings: Option<Box<[u8]>>,
+}
+impl<Usage> Debug for ClientBuilder<Usage> {
+    fn fmt(&self, mut f: Formatter<'_>) -> FmtResult {
+        f.debug_struct("ClientBuilder")
+            .field("cred", &self.cred)
+            .field("flags", &self.flags)
+            .field(
+                "target_principal",
+                &self.target_principal.map(|b| String::from_utf16_lossy(&b)),
+            )
+            .field("channel_bindings", &self.channel_bindings)
+            .finish()
+    }
 }
 impl<Usage> ClientBuilder<Usage> {
     pub fn new_from_credentials(cred: Arc<Credentials<Usage>>, target_principal: Option<&str>) -> ClientBuilder<Usage> {

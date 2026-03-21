@@ -1,4 +1,9 @@
-use std::{ffi::c_void, mem::ManuallyDrop, ops::Deref};
+use std::{
+    ffi::c_void,
+    fmt::{Debug, Formatter, Result as FmtResult},
+    mem::ManuallyDrop,
+    ops::Deref,
+};
 
 use windows::Win32::Security::{
     Authentication::Identity::{DeleteSecurityContext, FreeContextBuffer, SecPkgContext_SessionKey},
@@ -11,7 +16,7 @@ impl ContextHandle {
     pub fn leak(self) -> SecHandle {
         ManuallyDrop::new(self).0
     }
-    pub unsafe fn pick_up(sec: SecHandle) -> Self {
+    pub unsafe fn from_raw(sec: SecHandle) -> Self {
         Self(sec)
     }
     pub fn as_mut_ptr(&mut self) -> *mut SecHandle {
@@ -27,6 +32,11 @@ impl Drop for ContextHandle {
     }
 }
 unsafe impl Send for ContextHandle {}
+impl Debug for ContextHandle {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "ContextHandle")
+    }
+}
 
 pub struct SessionKey {
     key: &'static [u8],
@@ -48,5 +58,10 @@ impl Deref for SessionKey {
     type Target = [u8];
     fn deref(&self) -> &Self::Target {
         self.key
+    }
+}
+impl Debug for SessionKey {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "SessionKey")
     }
 }

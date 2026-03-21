@@ -1,6 +1,7 @@
 pub use kenobi_core::cred::usage::{Both, Inbound, Outbound};
 use kenobi_core::mech::Mechanism;
 use std::{
+    fmt::{Debug, Formatter, Result as FmtResult},
     marker::PhantomData,
     ptr::NonNull,
     time::{Duration, Instant},
@@ -18,7 +19,7 @@ use crate::{
 };
 
 pub struct Credentials<Usage = Outbound> {
-    pub(crate) cred_handle: NonNull<gss_cred_id_struct>,
+    cred_handle: NonNull<gss_cred_id_struct>,
     mechanism: Mechanism,
     valid_until: Instant,
     _usage: PhantomData<Usage>,
@@ -77,11 +78,28 @@ impl<Usage: CredentialsUsage> Credentials<Usage> {
             _usage: PhantomData,
         })
     }
+}
+impl<Usage> Credentials<Usage> {
+    pub(crate) fn as_raw(&self) -> NonNull<gss_cred_id_struct> {
+        self.cred_handle
+    }
     pub fn mechanism(&self) -> Mechanism {
         self.mechanism
     }
     pub fn valid_until(&self) -> Instant {
         self.valid_until
+    }
+    pub(crate) unsafe fn from_raw_components(
+        handle: NonNull<gss_cred_id_struct>,
+        mechanism: Mechanism,
+        validity: Duration,
+    ) -> Self {
+        Self {
+            cred_handle: handle,
+            mechanism,
+            valid_until: Instant::now() + validity,
+            _usage: PhantomData,
+        }
     }
 }
 impl Credentials<Inbound> {
@@ -117,6 +135,14 @@ impl<T> Drop for Credentials<T> {
         unsafe {
             gss_release_cred(&mut _s, &mut NonNull::as_ptr(self.cred_handle));
         }
+    }
+}
+impl<CU> Debug for Credentials<CU> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.debug_struct("Credentials")
+            .field("mechanism", &self.mechanism)
+            .field("valid_until", &self.valid_until)
+            .finish()
     }
 }
 pub trait CredentialsUsage {

@@ -68,15 +68,15 @@ impl<Usage, S, E, D> ClientContext<Usage, S, E, D> {
     }
 }
 impl<Usage, E, D> ClientContext<Usage, Signing, E, D> {
-    pub fn sign(&self, message: &[u8]) -> Result<Signature, WrapError> {
+    pub fn sign(&mut self, message: &[u8]) -> Result<Signature, WrapError> {
         self.context.wrap_sign(message).map_err(WrapError)
     }
-    pub fn unwrap(&self, message: &[u8]) -> Result<Plaintext, Altered> {
+    pub fn unwrap(&mut self, message: &[u8]) -> Result<Plaintext, Altered> {
         self.context.unwrap(message)
     }
 }
 impl<Usage, D> ClientContext<Usage, Signing, Encryption, D> {
-    pub fn encrypt(&self, message: &[u8]) -> Result<Encrypted, WrapError> {
+    pub fn encrypt(&mut self, message: &[u8]) -> Result<Encrypted, WrapError> {
         self.context.wrap_encrypt(message).map_err(WrapError)
     }
 }
@@ -246,7 +246,7 @@ fn step<Usage: OutboundUsable>(
     token_buffer.set_length(out_token_buffer.cbBuffer);
     match hres {
         SEC_E_OK => {
-            let context = unsafe { ContextHandle::pick_up(*out_sec_handle) };
+            let context = unsafe { ContextHandle::from_raw(*out_sec_handle) };
             Ok(StepOut::Completed(ClientContext {
                 attributes,
                 cred,
@@ -259,7 +259,7 @@ fn step<Usage: OutboundUsable>(
             panic!("CompleteAuthToken is not supported by Negotiate")
         }
         SEC_I_CONTINUE_NEEDED => {
-            let context = unsafe { ContextHandle::pick_up(*out_sec_handle) };
+            let context = unsafe { ContextHandle::from_raw(*out_sec_handle) };
             Ok(StepOut::Pending(PendingClientContext {
                 target_spn,
                 cred,
