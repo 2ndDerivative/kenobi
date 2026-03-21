@@ -156,7 +156,7 @@ fn step<CU: OutboundUsable>(
     match unsafe {
         gss_init_sec_context(
             &mut minor_status,
-            NonNull::as_ptr(cred.cred_handle),
+            cred.as_raw().as_ptr(),
             &mut ctx_ptr,
             target_principal.as_mut().map_or(ptr::null_mut(), |nn| nn.as_mut()),
             &mut mech_kerberos(),
