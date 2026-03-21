@@ -120,11 +120,10 @@ pub struct PendingServerContext<CU> {
     context: ContextHandle,
     cred: Arc<Credentials<CU>>,
     next_token: Token,
-    principal: Option<NameHandle>,
 }
 impl<CU: InboundUsable> PendingServerContext<CU> {
     pub fn step(self, token: &[u8]) -> StepOut<CU> {
-        step(Some(self.context), self.cred, self.principal, token, None)
+        step(Some(self.context), self.cred, token, None)
     }
 }
 impl<CU> PendingServerContext<CU> {
@@ -136,7 +135,6 @@ impl<CU> PendingServerContext<CU> {
 fn step<CU: InboundUsable>(
     mut ctx: Option<ContextHandle>,
     cred: Arc<Credentials<CU>>,
-    mut principal: Option<NameHandle>,
     token: &[u8],
     channel_bindings: Option<Box<[u8]>>,
 ) -> StepOut<CU> {
@@ -158,7 +156,7 @@ fn step<CU: InboundUsable>(
             cred.as_raw().as_ptr(),
             &mut token_buf,
             channel_binding_buffer.as_mut().map_or(ptr::null_mut(), ptr::from_mut),
-            &mut principal.as_mut().map_or(ptr::null_mut(), |n| n.as_mut()),
+            ptr::null_mut(),
             ptr::null_mut(),
             &mut next_token,
             &mut attributes,
@@ -196,7 +194,6 @@ fn step<CU: InboundUsable>(
                 context,
                 cred,
                 next_token,
-                principal,
             })
         }
         code => todo!("Error code: {code:?}"),

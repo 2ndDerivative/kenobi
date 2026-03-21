@@ -55,19 +55,6 @@ pub mod cred {
         }
     }
     impl<Usage: CredentialsUsage> Credentials<Usage> {
-        /// Grab the default credentials handle for a given principal (or the default user principal)
-        ///
-        /// On windows, this will use the current security context, and on Unix, this will use the default Keytab/ticket store
-        fn new(principal: Option<&str>, mechanism: Mechanism) -> Result<Self, CredentialsError> {
-            #[cfg(windows)]
-            let inner = WinCred::acquire(principal, mechanism).map_err(|win| CredentialsError { win })?;
-            #[cfg(unix)]
-            let inner = UnixCred::new(principal, None, mechanism).map_err(|unix| CredentialsError { unix })?;
-            Ok(Self {
-                inner: Arc::new(inner),
-                _marker: PhantomData,
-            })
-        }
         pub fn mechanism(&self) -> Mechanism {
             self.inner.mechanism()
         }
@@ -76,8 +63,30 @@ pub mod cred {
         }
     }
     impl Credentials<Outbound> {
+        /// Grab the default *user* credentials handle for a given principal (or the default user principal)
+        ///
+        /// On windows, this will use the current security context, and on Unix, this will use the default Keytab/ticket store
         pub fn outbound(principal: Option<&str>, mechanism: Mechanism) -> Result<Self, CredentialsError> {
-            Self::new(principal, mechanism)
+            #[cfg(windows)]
+            let inner = WinCred::acquire(principal, mechanism).map_err(|win| CredentialsError { win })?;
+            #[cfg(unix)]
+            let inner = UnixCred::outbound(principal, None, mechanism).map_err(|unix| CredentialsError { unix })?;
+            Ok(Self {
+                inner: Arc::new(inner),
+                _marker: PhantomData,
+            })
+        }
+    }
+    impl Credentials<Inbound> {
+        pub fn inbound(principal: Option<&str>, mechanism: Mechanism) -> Result<Self, CredentialsError> {
+            #[cfg(windows)]
+            let inner = WinCred::acquire(principal, mechanism).map_err(|win| CredentialsError { win })?;
+            #[cfg(unix)]
+            let inner = UnixCred::inbound(principal, None, mechanism).map_err(|unix| CredentialsError { unix })?;
+            Ok(Self {
+                inner: Arc::new(inner),
+                _marker: PhantomData,
+            })
         }
     }
 }

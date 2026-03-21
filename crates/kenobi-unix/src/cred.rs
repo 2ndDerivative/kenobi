@@ -8,8 +8,8 @@ use std::{
 };
 
 use libgssapi_sys::{
-    _GSS_C_INDEFINITE, _GSS_S_FAILURE, GSS_C_ACCEPT, GSS_C_BOTH, GSS_C_INITIATE, GSS_C_NT_USER_NAME, gss_OID_set_desc,
-    gss_acquire_cred, gss_cred_id_struct, gss_release_cred,
+    _GSS_C_INDEFINITE, _GSS_S_FAILURE, GSS_C_ACCEPT, GSS_C_BOTH, GSS_C_INITIATE, GSS_C_NT_HOSTBASED_SERVICE,
+    GSS_C_NT_USER_NAME, gss_OID, gss_OID_set_desc, gss_acquire_cred, gss_cred_id_struct, gss_release_cred,
 };
 
 use crate::{
@@ -28,14 +28,13 @@ pub struct Credentials<Usage = Outbound> {
 unsafe impl<Usage> Send for Credentials<Usage> {}
 unsafe impl<Usage> Sync for Credentials<Usage> {}
 impl<Usage: CredentialsUsage> Credentials<Usage> {
-    pub fn new(
+    fn new(
         principal: Option<&str>,
         time_required: Option<Duration>,
         mechanism: Mechanism,
+        oid: gss_OID,
     ) -> Result<Self, super::Error> {
-        let mut name = principal
-            .map(|p| unsafe { NameHandle::import(p, GSS_C_NT_USER_NAME) })
-            .transpose()?;
+        let mut name = principal.map(|p| unsafe { NameHandle::import(p, oid) }).transpose()?;
         let mut minor = 0;
         let mut validity = 0;
         let mut cred_handle = std::ptr::null_mut();
@@ -108,7 +107,9 @@ impl Credentials<Inbound> {
         time_required: Option<Duration>,
         mechanism: Mechanism,
     ) -> Result<Self, super::Error> {
-        Self::new(principal, time_required, mechanism)
+        Self::new(principal, time_required, mechanism, unsafe {
+            GSS_C_NT_HOSTBASED_SERVICE
+        })
     }
 }
 impl Credentials<Outbound> {
@@ -117,7 +118,7 @@ impl Credentials<Outbound> {
         time_required: Option<Duration>,
         mechanism: Mechanism,
     ) -> Result<Self, super::Error> {
-        Self::new(principal, time_required, mechanism)
+        Self::new(principal, time_required, mechanism, unsafe { GSS_C_NT_USER_NAME })
     }
 }
 impl Credentials<Both> {
@@ -126,7 +127,9 @@ impl Credentials<Both> {
         time_required: Option<Duration>,
         mechanism: Mechanism,
     ) -> Result<Self, super::Error> {
-        Self::new(principal, time_required, mechanism)
+        Self::new(principal, time_required, mechanism, unsafe {
+            GSS_C_NT_HOSTBASED_SERVICE
+        })
     }
 }
 impl<T> Drop for Credentials<T> {

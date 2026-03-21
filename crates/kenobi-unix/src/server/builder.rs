@@ -1,29 +1,21 @@
 use std::sync::Arc;
 
 use kenobi_core::{channel_bindings::Channel, cred::usage::InboundUsable};
-use libgssapi_sys::GSS_C_NT_HOSTBASED_SERVICE;
 
 use crate::{
     cred::Credentials,
-    name::NameHandle,
     server::{StepOut, step},
 };
 
 #[derive(Debug)]
 pub struct ServerBuilder<CU> {
     cred: Arc<Credentials<CU>>,
-    principal: Option<NameHandle>,
     channel_bindings: Option<Box<[u8]>>,
 }
 impl<CU: InboundUsable> ServerBuilder<CU> {
-    pub fn new(cred: Arc<Credentials<CU>>, principal: Option<&str>) -> ServerBuilder<CU> {
-        let principal = principal
-            .map(|p| unsafe { NameHandle::import(p, GSS_C_NT_HOSTBASED_SERVICE) })
-            .transpose()
-            .unwrap();
+    pub fn new(cred: Arc<Credentials<CU>>) -> ServerBuilder<CU> {
         ServerBuilder {
             cred,
-            principal,
             channel_bindings: None,
         }
     }
@@ -39,6 +31,6 @@ impl<CU> ServerBuilder<CU> {
 }
 impl<CU: InboundUsable> ServerBuilder<CU> {
     pub fn initialize(self, token: &[u8]) -> StepOut<CU> {
-        step(None, self.cred, self.principal, token, self.channel_bindings)
+        step(None, self.cred, token, self.channel_bindings)
     }
 }
