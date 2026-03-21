@@ -53,11 +53,11 @@ pub mod cred {
             }
         }
     }
-    impl<Usage: CredentialsUsage + OutboundUsable> Credentials<Usage> {
+    impl<Usage: CredentialsUsage> Credentials<Usage> {
         /// Grab the default credentials handle for a given principal (or the default user principal)
         ///
         /// On windows, this will use the current security context, and on Unix, this will use the default Keytab/ticket store
-        pub fn new(principal: Option<&str>, mechanism: Mechanism) -> Result<Self, CredentialsError> {
+        fn new(principal: Option<&str>, mechanism: Mechanism) -> Result<Self, CredentialsError> {
             #[cfg(windows)]
             let inner = WinCred::acquire(principal, mechanism).map_err(|win| CredentialsError { win })?;
             #[cfg(unix)]
