@@ -1,4 +1,5 @@
 use std::{
+    fmt::{Debug, Formatter, Result as FmtResult},
     marker::PhantomData,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
@@ -173,6 +174,14 @@ impl<Usage> AsRef<Credentials<Usage>> for Credentials<Usage> {
 impl<U> PartialEq for Credentials<U> {
     fn eq(&self, other: &Self) -> bool {
         self.handle == other.handle
+    }
+}
+impl<U> Debug for Credentials<U> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.debug_struct("Credentials")
+            .field("mechanism", &self.mechanism)
+            .field("valid_until", &self.valid_until)
+            .finish()
     }
 }
 

@@ -1,15 +1,15 @@
+use libgssapi_sys::gss_OID_desc;
+use std::ffi::c_void;
+
 mod buffer;
 pub mod client;
 mod context;
 pub mod cred;
 mod error;
-
-use std::ffi::c_void;
-
 pub use error::Error;
-use libgssapi_sys::gss_OID_desc;
 pub mod mech;
 mod name;
+pub mod server;
 pub mod sign_encrypt;
 
 static MECH_KERBEROS: &[u8] = b"\x2a\x86\x48\x86\xf7\x12\x01\x02\x02";

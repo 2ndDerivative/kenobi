@@ -15,12 +15,12 @@ use libgssapi_sys::{
 use crate::{
     Error,
     buffer::{Token, as_channel_bindings, empty_token},
-    client::typestate::{delegation::Sealed as _, encrypt::Sealed as _, sign::Sealed as _},
     context::{ContextHandle, SessionKey},
     cred::Credentials,
     error::{GssErrorCode, MechanismErrorCode},
     mech_kerberos,
     name::NameHandle,
+    sign_encrypt,
 };
 mod builder;
 mod typestate;
@@ -35,7 +35,7 @@ pub use typestate::{DelegationPolicy, EncryptionPolicy, SignPolicy};
 pub struct ClientContext<CU, S, E, D> {
     attributes: u32,
     cred: Arc<Credentials<CU>>,
-    pub(crate) context: ContextHandle,
+    context: ContextHandle,
     next_token: Option<Token>,
     marker: PhantomData<(S, E, D)>,
 }
@@ -49,7 +49,7 @@ impl<CU: OutboundUsable> ClientContext<CU, NoSigning, NoEncryption, NoDelegation
 impl<CU, E, D> ClientContext<CU, MaybeSigning, E, D> {
     #[allow(clippy::type_complexity)]
     pub fn check_signing(self) -> Result<ClientContext<CU, Signing, E, D>, ClientContext<CU, NoSigning, E, D>> {
-        if self.attributes & MaybeSigning::REQUESTED_FLAGS != 0 {
+        if self.attributes & GSS_C_INTEG_FLAG != 0 {
             Ok(self.change_policy())
         } else {
             Err(self.change_policy())
@@ -61,7 +61,7 @@ impl<CU, S, D> ClientContext<CU, S, MaybeEncryption, D> {
     pub fn check_encryption(
         self,
     ) -> Result<ClientContext<CU, S, Encryption, D>, ClientContext<CU, S, NoEncryption, D>> {
-        if self.attributes & MaybeEncryption::REQUESTED_FLAGS != 0 {
+        if self.attributes & GSS_C_CONF_FLAG != 0 {
             Ok(self.change_policy())
         } else {
             Err(self.change_policy())
@@ -73,7 +73,7 @@ impl<CU, S, E> ClientContext<CU, S, E, MaybeDelegation> {
     pub fn check_delegation(
         self,
     ) -> Result<ClientContext<CU, S, E, Delegation>, ClientContext<CU, S, E, NoDelegation>> {
-        if self.attributes & MaybeDelegation::REQUESTED_FLAGS != 0 {
+        if self.attributes & GSS_C_DELEG_FLAG != 0 {
             Ok(self.change_policy())
         } else {
             Err(self.change_policy())
@@ -95,6 +95,21 @@ impl<CU, S1, E1, D1> ClientContext<CU, S1, E1, D1> {
     }
     pub fn session_key(&self) -> Result<SessionKey, Error> {
         self.context.session_key()
+    }
+}
+
+impl<CU, E, D> ClientContext<CU, Signing, E, D> {
+    pub fn sign(&mut self, message: &[u8]) -> Result<sign_encrypt::Signed, Error> {
+        sign_encrypt::sign(&mut self.context, message)
+    }
+
+    pub fn unwrap(&mut self, message: &[u8]) -> Result<sign_encrypt::Plaintext, Error> {
+        sign_encrypt::unwrap_raw(&mut self.context, message)
+    }
+}
+impl<CU, S, D> ClientContext<CU, S, Encryption, D> {
+    pub fn encrypt(&mut self, message: &[u8]) -> Result<sign_encrypt::Encrypted, Error> {
+        sign_encrypt::encrypt(&mut self.context, message)
     }
 }
 
@@ -156,7 +171,7 @@ fn step<CU: OutboundUsable>(
     match unsafe {
         gss_init_sec_context(
             &mut minor_status,
-            NonNull::as_ptr(cred.cred_handle),
+            cred.as_raw().as_ptr(),
             &mut ctx_ptr,
             target_principal.as_mut().map_or(ptr::null_mut(), |nn| nn.as_mut()),
             &mut mech_kerberos(),

@@ -7,6 +7,7 @@ use crate::{
 };
 use kenobi_core::{channel_bindings::Channel, cred::usage::InboundUsable, flags::CapabilityFlags};
 
+#[derive(Debug)]
 pub struct ServerBuilder<Usage> {
     cred: Arc<Credentials<Usage>>,
     channel_bindings: Option<Box<[u8]>>,

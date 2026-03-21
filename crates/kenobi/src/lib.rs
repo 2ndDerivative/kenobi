@@ -36,6 +36,7 @@ pub mod cred {
     }
 
     /// A GSSAPI credentials handle
+    #[derive(Debug)]
     pub struct Credentials<Usage> {
         #[cfg(windows)]
         pub(crate) inner: Arc<WinCred<Usage>>,

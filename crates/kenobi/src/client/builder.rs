@@ -4,6 +4,7 @@ use crate::{client::StepOut, cred::Credentials};
 
 /// A Builder to setup a signing and encryption policy for a client context.
 /// finish setting up with `ClientBuilder::initialize`
+#[derive(Debug)]
 pub struct ClientBuilder<Usage> {
     #[cfg(windows)]
     inner: kenobi_windows::client::ClientBuilder<Usage>,

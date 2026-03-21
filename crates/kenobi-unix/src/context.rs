@@ -1,4 +1,8 @@
-use std::{ops::Deref, ptr::NonNull};
+use std::{
+    fmt::{Debug, Formatter, Result as FmtResult},
+    ops::Deref,
+    ptr::NonNull,
+};
 
 use libgssapi_sys::{
     GSS_C_INQ_SSPI_SESSION_KEY, gss_buffer_set_desc_struct, gss_ctx_id_struct, gss_delete_sec_context,
@@ -47,6 +51,12 @@ impl Drop for ContextHandle {
         unsafe { gss_delete_sec_context(&mut _s, &mut NonNull::as_ptr(self.0), std::ptr::null_mut()) };
     }
 }
+/// Opaque because it's supposed to be an opaque handle
+impl Debug for ContextHandle {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "ContextHandle")
+    }
+}
 
 pub struct SessionKey(*mut gss_buffer_set_desc_struct);
 unsafe impl Sync for SessionKey {}
@@ -68,5 +78,11 @@ impl Deref for SessionKey {
     type Target = [u8];
     fn deref(&self) -> &Self::Target {
         self.as_slice()
+    }
+}
+/// Opaque because it's a secret
+impl Debug for SessionKey {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "SessionKey")
     }
 }
