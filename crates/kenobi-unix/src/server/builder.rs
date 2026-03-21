@@ -9,10 +9,11 @@ use crate::{
     server::{StepOut, step},
 };
 
+#[derive(Debug)]
 pub struct ServerBuilder<CU> {
     cred: Arc<Credentials<CU>>,
-    channel_bindings: Option<Box<[u8]>>,
     principal: Option<NameHandle>,
+    channel_bindings: Option<Box<[u8]>>,
 }
 impl<CU: InboundUsable> ServerBuilder<CU> {
     pub fn new(cred: Arc<Credentials<CU>>, principal: Option<&str>) -> ServerBuilder<CU> {

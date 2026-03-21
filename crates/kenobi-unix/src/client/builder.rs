@@ -10,6 +10,7 @@ use crate::{
     name::NameHandle,
 };
 
+#[derive(Debug)]
 pub struct ClientBuilder<CU> {
     cred: Arc<Credentials<CU>>,
     target_principal: Option<NameHandle>,

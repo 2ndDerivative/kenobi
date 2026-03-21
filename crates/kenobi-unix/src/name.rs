@@ -1,4 +1,8 @@
-use std::{ffi::c_void, fmt::Display, ptr::NonNull};
+use std::{
+    ffi::c_void,
+    fmt::{Debug, Display, Formatter, Result as FmtResult},
+    ptr::NonNull,
+};
 
 use libgssapi_sys::{
     gss_OID, gss_OID_desc_struct, gss_buffer_desc_struct, gss_buffer_t, gss_display_name, gss_name_struct,
@@ -30,8 +34,13 @@ impl Drop for NameHandle {
         unsafe { gss_release_name(&mut _s, &mut NonNull::as_ptr(self.name)) };
     }
 }
+impl Debug for NameHandle {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "NameHandle")
+    }
+}
 impl Display for NameHandle {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         let mut minor = 0;
         let mut buffer = gss_buffer_desc_struct {
             length: 0,

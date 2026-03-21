@@ -1,6 +1,7 @@
 pub use kenobi_core::cred::usage::{Both, Inbound, Outbound};
 use kenobi_core::mech::Mechanism;
 use std::{
+    fmt::{Debug, Formatter, Result as FmtResult},
     marker::PhantomData,
     ptr::NonNull,
     time::{Duration, Instant},
@@ -134,6 +135,14 @@ impl<T> Drop for Credentials<T> {
         unsafe {
             gss_release_cred(&mut _s, &mut NonNull::as_ptr(self.cred_handle));
         }
+    }
+}
+impl<CU> Debug for Credentials<CU> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.debug_struct("Credentials")
+            .field("mechanism", &self.mechanism)
+            .field("valid_until", &self.valid_until)
+            .finish()
     }
 }
 pub trait CredentialsUsage {
