@@ -1,21 +1,18 @@
-use std::{
-    ffi::c_void,
-    fmt::Display,
-    marker::PhantomData,
-    ptr::{self, NonNull},
-    sync::Arc,
-};
+use std::{ffi::c_void, fmt::Display, marker::PhantomData, sync::Arc};
 
 use windows::Win32::{
     Foundation::{
         SEC_E_INTERNAL_ERROR, SEC_E_INVALID_HANDLE, SEC_E_INVALID_TOKEN, SEC_E_LOGON_DENIED,
         SEC_E_NO_AUTHENTICATING_AUTHORITY, SEC_E_OK, SEC_E_UNSUPPORTED_FUNCTION, SEC_I_CONTINUE_NEEDED,
     },
-    Security::Authentication::Identity::{
-        ASC_REQ_CONFIDENTIALITY, ASC_REQ_DELEGATE, ASC_REQ_FLAGS, ASC_REQ_INTEGRITY, ASC_REQ_MUTUAL_AUTH,
-        AcceptSecurityContext, QueryContextAttributesW, SEC_CHANNEL_BINDINGS, SECBUFFER_CHANNEL_BINDINGS,
-        SECBUFFER_TOKEN, SECBUFFER_VERSION, SECPKG_ATTR_NATIVE_NAMES, SECURITY_NATIVE_DREP, SecBuffer, SecBufferDesc,
-        SecPkgContext_NativeNamesW,
+    Security::{
+        Authentication::Identity::{
+            ASC_REQ_CONFIDENTIALITY, ASC_REQ_DELEGATE, ASC_REQ_FLAGS, ASC_REQ_INTEGRITY, ASC_REQ_MUTUAL_AUTH,
+            AcceptSecurityContext, QueryContextAttributesW, SEC_CHANNEL_BINDINGS, SECBUFFER_CHANNEL_BINDINGS,
+            SECBUFFER_TOKEN, SECBUFFER_VERSION, SECPKG_ATTR_NAMES, SECURITY_NATIVE_DREP, SecBuffer, SecBufferDesc,
+            SecPkgContext_NamesW,
+        },
+        Credentials::SecHandle,
     },
 };
 
@@ -71,12 +68,9 @@ impl<Usage, S, E, D> ServerContext<Usage, S, E, D> {
         (!self.token_buffer.is_empty()).then_some(&self.token_buffer)
     }
     pub fn client_name(&self) -> Result<impl Display + Send + Sync, windows_result::Error> {
-        let names: *mut SecPkgContext_NativeNamesW = ptr::null_mut();
-        unsafe { QueryContextAttributesW(self.context.as_ptr(), SECPKG_ATTR_NATIVE_NAMES, names.cast())? }
-        let Some(nn_names) = NonNull::new(names) else {
-            panic!("context send null pointer")
-        };
-        Ok(unsafe { NativeNamesHandle::from_raw(nn_names) }.client())
+        let mut names: SecPkgContext_NamesW = SecPkgContext_NamesW::default();
+        unsafe { QueryContextAttributesW(self.context.as_ptr(), SECPKG_ATTR_NAMES, (&raw mut names).cast())? }
+        Ok(unsafe { NativeNamesHandle::from_raw(names) }.client())
     }
 }
 impl<Usage, E, D> ServerContext<Usage, Signing, E, D> {
@@ -222,6 +216,9 @@ fn step<Usage: InboundUsable>(
         pBuffers: buffers.as_mut_ptr(),
     };
     let old_context_ptr = context.as_ref().map(|c| c.as_ptr());
+    let mut new_ctx_ptr = SecHandle::default();
+    // if context doesnt exist yet, point to new default SecHandle
+    let mut_context_ptr = context.as_mut().map(|c| c.as_mut_ptr()).unwrap_or(&mut new_ctx_ptr);
     let hres = unsafe {
         AcceptSecurityContext(
             Some(cred.as_ref().as_raw_handle()),
@@ -229,7 +226,7 @@ fn step<Usage: InboundUsable>(
             Some(&in_buf_desc),
             convert_flags(flags),
             SECURITY_NATIVE_DREP,
-            Some(context.as_mut().map(|c| c.as_mut_ptr()).unwrap_or_default()),
+            Some(mut_context_ptr),
             Some(&mut out_token_buffer_desc),
             &mut attributes,
             None,
@@ -238,7 +235,8 @@ fn step<Usage: InboundUsable>(
     token_buffer.set_length(out_token_buffer.cbBuffer);
     match hres {
         SEC_E_OK => {
-            let context = context.expect("get_or_inserted before");
+            // If context didn't exit yet, pick up new context
+            let context = context.unwrap_or_else(|| unsafe { ContextHandle::from_raw(new_ctx_ptr) });
             // Flag checks
             Ok(StepOut::Completed(ServerContext {
                 cred,
@@ -249,7 +247,8 @@ fn step<Usage: InboundUsable>(
             }))
         }
         SEC_I_CONTINUE_NEEDED => {
-            let context = context.expect("get_or_inserted before");
+            // If context didn't exit yet, pick up new context
+            let context = context.unwrap_or_else(|| unsafe { ContextHandle::from_raw(new_ctx_ptr) });
             Ok(StepOut::Pending(PendingServerContext {
                 cred,
                 context,

@@ -27,6 +27,9 @@ impl<Usage> ServerContext<Usage> {
     pub fn last_token(&self) -> Option<&[u8]> {
         self.inner.last_token()
     }
+    pub fn client_name(&mut self) -> impl std::fmt::Display + Send + Sync {
+        self.inner.client_name().unwrap()
+    }
 }
 
 pub struct PendingServerContext<Usage> {
