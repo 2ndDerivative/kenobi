@@ -9,8 +9,8 @@ use windows::Win32::{
         Authentication::Identity::{
             ASC_REQ_CONFIDENTIALITY, ASC_REQ_DELEGATE, ASC_REQ_FLAGS, ASC_REQ_INTEGRITY, ASC_REQ_MUTUAL_AUTH,
             AcceptSecurityContext, QueryContextAttributesW, SEC_CHANNEL_BINDINGS, SECBUFFER_CHANNEL_BINDINGS,
-            SECBUFFER_TOKEN, SECBUFFER_VERSION, SECPKG_ATTR_NAMES, SECURITY_NATIVE_DREP, SecBuffer, SecBufferDesc,
-            SecPkgContext_NamesW,
+            SECBUFFER_TOKEN, SECBUFFER_VERSION, SECPKG_ATTR_NATIVE_NAMES, SECURITY_NATIVE_DREP, SecBuffer,
+            SecBufferDesc, SecPkgContext_NativeNamesW,
         },
         Credentials::SecHandle,
     },
@@ -67,9 +67,9 @@ impl<Usage, S, E, D> ServerContext<Usage, S, E, D> {
     pub fn last_token(&self) -> Option<&[u8]> {
         (!self.token_buffer.is_empty()).then_some(&self.token_buffer)
     }
-    pub fn client_name(&self) -> Result<impl Display + Send + Sync, windows_result::Error> {
-        let mut names: SecPkgContext_NamesW = SecPkgContext_NamesW::default();
-        unsafe { QueryContextAttributesW(self.context.as_ptr(), SECPKG_ATTR_NAMES, (&raw mut names).cast())? }
+    pub fn client_native_name(&self) -> Result<impl Display + Send + Sync, windows_result::Error> {
+        let mut names: SecPkgContext_NativeNamesW = SecPkgContext_NativeNamesW::default();
+        unsafe { QueryContextAttributesW(self.context.as_ptr(), SECPKG_ATTR_NATIVE_NAMES, (&raw mut names).cast())? }
         Ok(unsafe { NativeNamesHandle::from_raw(names) }.client())
     }
 }

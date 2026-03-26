@@ -27,8 +27,18 @@ impl<Usage> ServerContext<Usage> {
     pub fn last_token(&self) -> Option<&[u8]> {
         self.inner.last_token()
     }
+}
+
+#[cfg(unix)]
+impl<Usage> ServerContext<Usage> {
     pub fn client_name(&mut self) -> impl std::fmt::Display + Send + Sync {
         self.inner.client_name().unwrap()
+    }
+}
+#[cfg(windows)]
+impl<Usage> ServerContext<Usage> {
+    pub fn client_name(&mut self) -> impl std::fmt::Display + Send + Sync {
+        self.inner.client_native_name().unwrap()
     }
 }
 

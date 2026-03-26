@@ -2,7 +2,7 @@ use std::{ffi::c_void, ops::Deref, sync::LazyLock};
 
 use windows::{
     Win32::Security::Authentication::Identity::{
-        FreeContextBuffer, QuerySecurityPackageInfoW, SecBuffer, SecPkgContext_NamesW,
+        FreeContextBuffer, QuerySecurityPackageInfoW, SecBuffer, SecPkgContext_NativeNamesW,
     },
     core::PCWSTR,
 };
@@ -71,19 +71,20 @@ impl Drop for NonResizableVec {
     }
 }
 
-pub struct NativeNamesHandle(SecPkgContext_NamesW);
+pub struct NativeNamesHandle(SecPkgContext_NativeNamesW);
 impl NativeNamesHandle {
     pub fn client(&self) -> String {
-        let client = self.0.sUserName;
+        let client = self.0.sClientName;
         unsafe { PCWSTR(client).to_string() }.expect("name returned was not UTF-16 compatible")
     }
-    pub(crate) unsafe fn from_raw(handle: SecPkgContext_NamesW) -> Self {
+    pub(crate) unsafe fn from_raw(handle: SecPkgContext_NativeNamesW) -> Self {
         Self(handle)
     }
 }
 impl Drop for NativeNamesHandle {
     fn drop(&mut self) {
-        let _ = unsafe { FreeContextBuffer(self.0.sUserName.cast()) };
+        let _ = unsafe { FreeContextBuffer(self.0.sClientName.cast()) };
+        let _ = unsafe { FreeContextBuffer(self.0.sServerName.cast()) };
     }
 }
 unsafe impl Send for NativeNamesHandle {}
