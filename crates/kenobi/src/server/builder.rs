@@ -10,9 +10,13 @@ pub struct ServerBuilder<Usage> {
     inner: kenobi_unix::server::ServerBuilder<Usage>,
 }
 impl<Usage> ServerBuilder<Usage> {
-    pub fn bind_to_channel<C: Channel>(self, channel: &C) -> Result<Self, C::Error> {
-        let inner = self.inner.bind_to_channel(channel)?;
-        Ok(Self { inner })
+    pub fn bind_to_channel(self, channel: &impl Channel) -> Result<Self, impl std::error::Error> {
+        match self.inner.bind_to_channel(channel) {
+            Ok(inner) => Ok(Self { inner }),
+            Err(e) => Err(e),
+        }
+    }
+}
     }
 }
 

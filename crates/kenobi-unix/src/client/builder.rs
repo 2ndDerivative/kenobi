@@ -55,12 +55,14 @@ impl<CU> ClientBuilder<CU> {
             ..self
         }
     }
-    pub fn bind_to_channel<C: Channel>(self, channel: &C) -> Result<Self, C::Error> {
-        let channel_bindings = channel.channel_bindings()?.map(|v| v.into_boxed_slice());
-        Ok(Self {
-            channel_bindings,
-            ..self
-        })
+    pub fn bind_to_channel(self, channel: &impl Channel) -> Result<Self, impl std::error::Error> {
+        match channel.channel_bindings() {
+            Err(e) => Err(e),
+            Ok(bindings) => Ok(Self {
+                channel_bindings: bindings.map(Vec::into_boxed_slice),
+                ..self
+            }),
+        }
     }
 }
 impl<CU: OutboundUsable> ClientBuilder<CU> {
