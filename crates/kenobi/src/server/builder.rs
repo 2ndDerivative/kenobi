@@ -17,6 +17,17 @@ impl<Usage> ServerBuilder<Usage> {
         }
     }
 }
+#[cfg(windows)]
+impl<Usage> ServerBuilder<Usage> {
+    pub fn with_mutual_auth(self) -> Self {
+        let inner = self.inner.offer_mutual_auth();
+        Self { inner }
+    }
+}
+#[cfg(unix)]
+impl<Usage> ServerBuilder<Usage> {
+    pub fn with_mutual_auth(self) -> Self {
+        self
     }
 }
 
@@ -27,6 +38,10 @@ impl<Usage: InboundUsable> ServerBuilder<Usage> {
         let inner = kenobi_windows::server::ServerBuilder::new_from_credentials(cred.inner);
         ServerBuilder { inner }
     }
+    #[must_use]
+    pub fn initialize(self, token: &[u8]) -> StepOut<Usage> {
+        StepOut::from_windows(self.inner.initialize(token).unwrap())
+    }
 }
 #[cfg(unix)]
 impl<Usage: InboundUsable> ServerBuilder<Usage> {
@@ -35,17 +50,6 @@ impl<Usage: InboundUsable> ServerBuilder<Usage> {
         let inner = kenobi_unix::server::ServerBuilder::new(cred.inner);
         ServerBuilder { inner }
     }
-}
-
-#[cfg(windows)]
-impl<Usage: InboundUsable> ServerBuilder<Usage> {
-    #[must_use]
-    pub fn initialize(self, token: &[u8]) -> StepOut<Usage> {
-        StepOut::from_windows(self.inner.initialize(token).unwrap())
-    }
-}
-#[cfg(unix)]
-impl<Usage: InboundUsable> ServerBuilder<Usage> {
     #[must_use]
     pub fn initialize(self, token: &[u8]) -> StepOut<Usage> {
         StepOut::from_unix(self.inner.initialize(token))
