@@ -13,3 +13,4 @@ libgssapi-sys = "0.3.3"
 
 [features]
 native-tls = ["kenobi-core/native-tls"]
+rustls = ["kenobi-core/rustls"]

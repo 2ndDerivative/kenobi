@@ -19,3 +19,4 @@ kenobi-unix = { version = "0.2", path = "../kenobi-unix" }
 
 [features]
 native-tls = ["kenobi-unix/native-tls", "kenobi-windows/native-tls"]
+rustls = ["kenobi-unix/rustls", "kenobi-windows/rustls"]

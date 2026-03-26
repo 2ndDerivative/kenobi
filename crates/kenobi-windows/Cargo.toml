@@ -21,3 +21,4 @@ features = [
 
 [features]
 native-tls = ["kenobi-core/native-tls"]
+rustls = ["kenobi-core/rustls"]
