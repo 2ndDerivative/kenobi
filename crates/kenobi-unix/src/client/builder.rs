@@ -55,7 +55,7 @@ impl<CU> ClientBuilder<CU> {
             ..self
         }
     }
-    pub fn bind_to_channel(self, channel: &impl Channel) -> Result<Self, impl std::error::Error> {
+    pub fn bind_to_channel<C: Channel>(self, channel: &C) -> Result<Self, C::Error> {
         match channel.channel_bindings() {
             Err(e) => Err(e),
             Ok(bindings) => Ok(Self {
