@@ -12,7 +12,7 @@ pub struct ClientBuilder<Usage> {
     inner: kenobi_unix::client::ClientBuilder<Usage>,
 }
 impl<Usage> ClientBuilder<Usage> {
-    pub fn bind_to_channel(self, channel: &impl Channel) -> Result<Self, impl std::error::Error> {
+    pub fn bind_to_channel<C: Channel>(self, channel: &C) -> Result<Self, C::Error> {
         match self.inner.bind_to_channel(channel) {
             Ok(inner) => Ok(Self { inner }),
             Err(e) => Err(e),
