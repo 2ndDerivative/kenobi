@@ -1,5 +1,9 @@
+#[cfg(feature = "rustls")]
+use std::convert::Infallible;
+
 pub trait Channel {
-    fn channel_bindings(&self) -> Result<Option<Vec<u8>>, impl std::error::Error>;
+    type Error: std::error::Error;
+    fn channel_bindings(&self) -> Result<Option<Vec<u8>>, Self::Error>;
 }
 
 #[cfg(any(feature = "native-tls", feature = "rustls"))]
@@ -7,7 +11,8 @@ const PREFIX: &[u8] = b"tls-server-end-point:";
 
 #[cfg(feature = "native-tls")]
 impl<S: std::io::Read + std::io::Write> Channel for native_tls::TlsStream<S> {
-    fn channel_bindings(&self) -> Result<Option<Vec<u8>>, impl std::error::Error> {
+    type Error = native_tls::Error;
+    fn channel_bindings(&self) -> Result<Option<Vec<u8>>, Self::Error> {
         match self.tls_server_end_point() {
             Ok(Some(v)) => {
                 let mut vec = Vec::with_capacity(PREFIX.len() + v.len());
@@ -21,19 +26,18 @@ impl<S: std::io::Read + std::io::Write> Channel for native_tls::TlsStream<S> {
 }
 #[cfg(feature = "rustls")]
 impl Channel for rustls::ClientConnection {
-    fn channel_bindings(&self) -> Result<Option<Vec<u8>>, impl std::error::Error> {
-        use std::convert::Infallible;
-
-        Ok::<_, Infallible>(
-            self.peer_certificates()
-                .and_then(|peers| peers.first())
-                .and_then(|p| p.channel_bindings().unwrap()),
-        )
+    type Error = Infallible;
+    fn channel_bindings(&self) -> Result<Option<Vec<u8>>, Self::Error> {
+        Ok(self
+            .peer_certificates()
+            .and_then(|peers| peers.first())
+            .and_then(|p| p.channel_bindings().unwrap()))
     }
 }
 #[cfg(feature = "rustls")]
 impl Channel for rustls::pki_types::CertificateDer<'_> {
-    fn channel_bindings(&self) -> Result<Option<Vec<u8>>, impl std::error::Error> {
+    type Error = Infallible;
+    fn channel_bindings(&self) -> Result<Option<Vec<u8>>, Self::Error> {
         let hash = tls_server_end_point_digest(self);
         Ok::<_, std::convert::Infallible>(Some([PREFIX, hash.as_ref()].concat()))
     }
