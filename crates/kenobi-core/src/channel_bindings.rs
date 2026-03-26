@@ -20,18 +20,22 @@ impl<S: std::io::Read + std::io::Write> Channel for native_tls::TlsStream<S> {
     }
 }
 #[cfg(feature = "rustls")]
-impl Channel for rustls::CommonState {
+impl Channel for rustls::ClientConnection {
     fn channel_bindings(&self) -> Result<Option<Vec<u8>>, impl std::error::Error> {
         use std::convert::Infallible;
-
-        use x509_parser::nom::AsBytes;
 
         Ok::<_, Infallible>(
             self.peer_certificates()
                 .and_then(|peers| peers.first())
-                .map(|p| tls_server_end_point_digest(p.as_bytes()))
-                .map(|hash| [PREFIX, hash.as_ref()].concat()),
+                .and_then(|p| p.channel_bindings().unwrap()),
         )
+    }
+}
+#[cfg(feature = "rustls")]
+impl Channel for rustls::pki_types::CertificateDer<'_> {
+    fn channel_bindings(&self) -> Result<Option<Vec<u8>>, impl std::error::Error> {
+        let hash = tls_server_end_point_digest(self);
+        Ok::<_, std::convert::Infallible>(Some([PREFIX, hash.as_ref()].concat()))
     }
 }
 
@@ -40,15 +44,12 @@ fn tls_server_end_point_digest(cert_der: &[u8]) -> Vec<u8> {
     use sha2::{Digest, Sha256, Sha384, Sha512};
     use x509_parser::{oid_registry::*, prelude::*, signature_algorithm::RsaSsaPssParams};
 
-    // Parse the certificate so we can inspect the signature algorithm OID.
     let Ok((_, x509)) = X509Certificate::from_der(cert_der) else {
-        // If parsing fails, conservative SHA-256 fallback (still deterministic).
         return Sha256::digest(cert_der).to_vec();
     };
 
     let sig_oid = &x509.signature_algorithm.algorithm;
 
-    // RSASSA-PSS: OID 1.2.840.113549.1.1.10, hash is in parameters
     if sig_oid == &OID_PKCS1_RSASSAPSS {
         if let Some(params_any) = x509.signature_algorithm.parameters()
             && let Ok(pss) = RsaSsaPssParams::try_from(params_any)
@@ -64,7 +65,6 @@ fn tls_server_end_point_digest(cert_der: &[u8]) -> Vec<u8> {
         return Sha256::digest(cert_der).to_vec();
     }
 
-    // RSA PKCS#1 v1.5 with SHA-2
     if sig_oid == &OID_PKCS1_SHA256WITHRSA {
         return Sha256::digest(cert_der).to_vec();
     }
