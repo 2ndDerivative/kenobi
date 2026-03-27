@@ -1,3 +1,4 @@
+#[cfg(windows)]
 use kenobi_windows::client::InitializeContextError;
 
 #[derive(Clone, Copy, Debug)]
@@ -39,6 +40,7 @@ impl From<kenobi_unix::Error> for InitializeError {
     }
 }
 
+#[cfg(windows)]
 impl From<InitializeContextError> for InitializeError {
     fn from(value: InitializeContextError) -> Self {
         use InitializeContextError as Error;
