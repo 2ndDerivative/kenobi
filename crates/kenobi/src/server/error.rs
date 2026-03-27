@@ -1,14 +1,17 @@
+#[cfg(windows)]
+use kenobi_windows::server::AcceptContextError;
+
 #[derive(Clone, Copy, Debug)]
 pub enum AcceptError {
     BadChannelBindings,
     BadSignature,
     CredentialsExpired,
     DefectiveToken,
-    DefectiveCredentials,
     DuplicateToken,
     Failure,
+    InvalidCredentials,
+    InvalidContext,
     NoCredentials,
-    NoContext,
     OldToken,
     Unknown,
 }
@@ -24,16 +27,31 @@ impl From<kenobi_unix::Error> for AcceptError {
                     Kind::BadBindings => Self::BadChannelBindings,
                     Kind::BadSignature => Self::BadSignature,
                     Kind::CredentialsExpired => Self::CredentialsExpired,
-                    Kind::DefectiveCredentials => Self::DefectiveCredentials,
+                    Kind::DefectiveCredentials => Self::InvalidCredentials,
                     Kind::DefectiveToken => Self::DefectiveToken,
                     Kind::Failure => Self::Unknown,
-                    Kind::NoContext => Self::NoContext,
+                    Kind::NoContext => Self::InvalidContext,
                     Kind::NoCredentials => Self::NoCredentials,
                     Kind::DuplicateToken => Self::DuplicateToken,
                     Kind::OldToken => Self::OldToken,
                 },
             },
             _ => todo!(),
+        }
+    }
+}
+
+#[cfg(windows)]
+impl From<AcceptContextError> for AcceptError {
+    fn from(value: AcceptContextError) -> Self {
+        use AcceptContextError as Error;
+        match value {
+            Error::Internal => Self::Unknown,
+            Error::InvalidHandle => Self::InvalidContext,
+            Error::InvalidToken => Self::DefectiveToken,
+            Error::Denied => Self::InvalidCredentials,
+            // TODO this is a kerberos specific error in GSSAPI
+            Error::NoAuthority => Self::Unknown,
         }
     }
 }

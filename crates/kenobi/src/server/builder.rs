@@ -42,7 +42,10 @@ impl<Usage: InboundUsable> ServerBuilder<Usage> {
         ServerBuilder { inner }
     }
     pub fn initialize(self, token: &[u8]) -> Result<StepOut<Usage>, AcceptError> {
-        Ok(StepOut::from_windows(self.inner.initialize(token).unwrap()))
+        self.inner
+            .initialize(token)
+            .map(StepOut::from_windows)
+            .map_err(AcceptError::from)
     }
 }
 #[cfg(unix)]

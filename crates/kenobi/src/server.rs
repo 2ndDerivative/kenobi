@@ -61,7 +61,7 @@ impl<Usage> PendingServerContext<Usage> {
 #[cfg(windows)]
 impl<Usage: InboundUsable> PendingServerContext<Usage> {
     pub fn step(self, token: &[u8]) -> Result<StepOut<Usage>, AcceptError> {
-        match self.inner.step(token).unwrap() {
+        match self.inner.step(token)? {
             WinStepOut::Pending(inner) => Ok(StepOut::Pending(PendingServerContext { inner })),
             WinStepOut::Completed(inner) => Ok(StepOut::Finished(ServerContext { inner })),
         }
