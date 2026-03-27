@@ -6,9 +6,6 @@ pub enum InitializeContextError {
     Denied,
     NoAuthority,
     TargetUnknown,
-    ServerRefusedMutualAuth,
-    ServerRefusedEncryption,
-    ServerRefusedSigning,
     WrongPrincipal,
 }
 impl std::error::Error for InitializeContextError {}
@@ -21,11 +18,6 @@ impl std::fmt::Display for InitializeContextError {
             InitializeContextError::Denied => write!(f, "Access denied"),
             InitializeContextError::NoAuthority => write!(f, "No authenticating authority found"),
             InitializeContextError::TargetUnknown => write!(f, "Target not recognized"),
-            InitializeContextError::ServerRefusedMutualAuth => {
-                write!(f, "The server refused to provide mutual authentication")
-            }
-            InitializeContextError::ServerRefusedEncryption => write!(f, "The server refused to provide encryption"),
-            InitializeContextError::ServerRefusedSigning => write!(f, "The server refused to provide signing"),
             InitializeContextError::WrongPrincipal => write!(f, "Mutual authentication failed"),
         }
     }

@@ -10,13 +10,14 @@ use kenobi_windows::client::{
 };
 
 pub use builder::ClientBuilder;
+pub use error::InitializeError;
 use kenobi_core::typestate::{
     Encryption, MaybeEncryption, MaybeSigning, NoDelegation, NoEncryption, NoSigning, Signing,
 };
 pub use typestate::{EncryptionState, SigningState};
 
 use crate::{
-    client::{error::InitializeError, typestate::DelegationState},
+    client::typestate::DelegationState,
     cred::{Credentials, CredentialsUsage},
     sign_encrypt::{Signature, UnwrapError, WrapError},
 };
@@ -158,7 +159,7 @@ impl<Usage> PendingClientContext<Usage> {
 #[cfg(windows)]
 impl<Usage: OutboundUsable> PendingClientContext<Usage> {
     pub fn step(self, token: &[u8]) -> Result<StepOut<Usage>, InitializeError> {
-        match self.inner.step(token).unwrap() {
+        match self.inner.step(token)? {
             WinStepOut::Completed(inner) => Ok(StepOut::Finished(ClientContext { inner })),
             WinStepOut::Pending(inner) => Ok(StepOut::Pending(PendingClientContext { inner })),
         }
@@ -168,7 +169,7 @@ impl<Usage: OutboundUsable> PendingClientContext<Usage> {
 #[cfg(unix)]
 impl<Usage: OutboundUsable> PendingClientContext<Usage> {
     pub fn step(self, token: &[u8]) -> Result<StepOut<Usage>, InitializeError> {
-        match self.inner.step(token).map_err(InitializeError::from)? {
+        match self.inner.step(token)? {
             UnixStepOut::Finished(inner) => Ok(StepOut::Finished(ClientContext { inner })),
             UnixStepOut::Pending(inner) => Ok(StepOut::Pending(PendingClientContext { inner })),
         }

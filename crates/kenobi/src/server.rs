@@ -70,7 +70,7 @@ impl<Usage: InboundUsable> PendingServerContext<Usage> {
 #[cfg(unix)]
 impl<Usage: InboundUsable> PendingServerContext<Usage> {
     pub fn step(self, token: &[u8]) -> Result<StepOut<Usage>, AcceptError> {
-        match self.inner.step(token).map_err(AcceptError::from)? {
+        match self.inner.step(token)? {
             UnixStepOut::Pending(inner) => Ok(StepOut::Pending(PendingServerContext { inner })),
             UnixStepOut::Finished(inner) => Ok(StepOut::Finished(ServerContext { inner })),
         }

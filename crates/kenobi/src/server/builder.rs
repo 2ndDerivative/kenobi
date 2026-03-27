@@ -1,8 +1,9 @@
 use kenobi_core::{channel_bindings::Channel, cred::usage::InboundUsable};
 
-#[cfg(unix)]
-use crate::server::AcceptError;
-use crate::{cred::Credentials, server::StepOut};
+use crate::{
+    cred::Credentials,
+    server::{AcceptError, StepOut},
+};
 
 #[derive(Debug)]
 pub struct ServerBuilder<Usage> {
