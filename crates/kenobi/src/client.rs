@@ -16,12 +16,13 @@ use kenobi_core::typestate::{
 pub use typestate::{EncryptionState, SigningState};
 
 use crate::{
-    client::typestate::DelegationState,
+    client::{error::InitializeError, typestate::DelegationState},
     cred::{Credentials, CredentialsUsage},
     sign_encrypt::{Signature, UnwrapError, WrapError},
 };
 
 mod builder;
+mod error;
 mod typestate;
 
 /// A client context that has finished authentication
@@ -35,11 +36,20 @@ pub struct ClientContext<Usage, S: SigningState, E: EncryptionState, D: Delegati
     inner: UnixClientContext<Usage, S, E, D>,
 }
 impl<Usage: CredentialsUsage + OutboundUsable> ClientContext<Usage, NoSigning, NoEncryption, NoDelegation> {
-    pub fn new_from_cred(cred: Credentials<Usage>, target_principal: Option<&str>) -> StepOut<Usage> {
+    pub fn new_from_cred(
+        cred: Credentials<Usage>,
+        target_principal: Option<&str>,
+    ) -> Result<StepOut<Usage>, InitializeError> {
         #[cfg(windows)]
-        return StepOut::from_windows(WinContext::new_from_cred(cred.inner, target_principal).unwrap());
+        return Ok(StepOut::from_windows(WinContext::new_from_cred(
+            cred.inner,
+            target_principal,
+        )?));
         #[cfg(unix)]
-        StepOut::from_unix(UnixClientContext::<Usage, _, _, _>::new(cred.inner, target_principal).unwrap())
+        Ok(StepOut::from_unix(UnixClientContext::<Usage, _, _, _>::new(
+            cred.inner,
+            target_principal,
+        )?))
     }
 }
 #[cfg(windows)]
@@ -147,20 +157,20 @@ impl<Usage> PendingClientContext<Usage> {
 }
 #[cfg(windows)]
 impl<Usage: OutboundUsable> PendingClientContext<Usage> {
-    pub fn step(self, token: &[u8]) -> StepOut<Usage> {
+    pub fn step(self, token: &[u8]) -> Result<StepOut<Usage>, InitializeError> {
         match self.inner.step(token).unwrap() {
-            WinStepOut::Completed(inner) => StepOut::Finished(ClientContext { inner }),
-            WinStepOut::Pending(inner) => StepOut::Pending(PendingClientContext { inner }),
+            WinStepOut::Completed(inner) => Ok(StepOut::Finished(ClientContext { inner })),
+            WinStepOut::Pending(inner) => Ok(StepOut::Pending(PendingClientContext { inner })),
         }
     }
 }
 
 #[cfg(unix)]
 impl<Usage: OutboundUsable> PendingClientContext<Usage> {
-    pub fn step(self, token: &[u8]) -> StepOut<Usage> {
-        match self.inner.step(token).unwrap() {
-            UnixStepOut::Finished(inner) => StepOut::Finished(ClientContext { inner }),
-            UnixStepOut::Pending(inner) => StepOut::Pending(PendingClientContext { inner }),
+    pub fn step(self, token: &[u8]) -> Result<StepOut<Usage>, InitializeError> {
+        match self.inner.step(token).map_err(InitializeError::from)? {
+            UnixStepOut::Finished(inner) => Ok(StepOut::Finished(ClientContext { inner })),
+            UnixStepOut::Pending(inner) => Ok(StepOut::Pending(PendingClientContext { inner })),
         }
     }
 }

@@ -5,7 +5,7 @@ mod buffer;
 pub mod client;
 mod context;
 pub mod cred;
-mod error;
+pub mod error;
 pub use error::Error;
 pub mod mech;
 mod name;

@@ -122,7 +122,7 @@ pub struct PendingServerContext<CU> {
     next_token: Token,
 }
 impl<CU: InboundUsable> PendingServerContext<CU> {
-    pub fn step(self, token: &[u8]) -> StepOut<CU> {
+    pub fn step(self, token: &[u8]) -> Result<StepOut<CU>, Error> {
         step(Some(self.context), self.cred, token, None)
     }
 }
@@ -137,7 +137,7 @@ fn step<CU: InboundUsable>(
     cred: Arc<Credentials<CU>>,
     token: &[u8],
     channel_bindings: Option<Box<[u8]>>,
-) -> StepOut<CU> {
+) -> Result<StepOut<CU>, Error> {
     let mut ctx_ptr = ctx.as_mut().map(ContextHandle::as_mut).unwrap_or_default();
     let mut minor = 0;
     let mut token_buf = gss_buffer_desc_struct {
@@ -173,14 +173,14 @@ fn step<CU: InboundUsable>(
             let delegated_creds = NonNull::new(delegated_cred_handle).map(|ch| unsafe {
                 Credentials::from_raw_components(ch, cred.mechanism(), Duration::from_secs(remaining_seconds.into()))
             });
-            StepOut::Finished(ServerContext {
+            Ok(StepOut::Finished(ServerContext {
                 cred,
                 context,
                 attributes,
                 last_token,
                 delegated_creds,
                 _enc: PhantomData,
-            })
+            }))
         }
         stat if stat & GSS_S_CONTINUE_NEEDED != 0 => {
             let Some(x) = NonNull::new(ctx_ptr) else {
@@ -190,11 +190,11 @@ fn step<CU: InboundUsable>(
                 panic!("GSS returned CONTINUE_NEEDED but didn't offer a new token")
             };
             let context = ctx.unwrap_or_else(|| unsafe { ContextHandle::from_raw(x) });
-            StepOut::Pending(PendingServerContext {
+            Ok(StepOut::Pending(PendingServerContext {
                 context,
                 cred,
                 next_token,
-            })
+            }))
         }
         code => todo!("Error code: {code:?}"),
     }

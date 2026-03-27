@@ -3,6 +3,7 @@ use std::sync::Arc;
 use kenobi_core::{channel_bindings::Channel, cred::usage::InboundUsable};
 
 use crate::{
+    Error,
     cred::Credentials,
     server::{StepOut, step},
 };
@@ -32,7 +33,7 @@ impl<CU> ServerBuilder<CU> {
     }
 }
 impl<CU: InboundUsable> ServerBuilder<CU> {
-    pub fn initialize(self, token: &[u8]) -> StepOut<CU> {
+    pub fn initialize(self, token: &[u8]) -> Result<StepOut<CU>, Error> {
         step(None, self.cred, token, self.channel_bindings)
     }
 }

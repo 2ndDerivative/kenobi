@@ -1,5 +1,7 @@
 use kenobi_core::{channel_bindings::Channel, cred::usage::OutboundUsable};
 
+#[cfg(unix)]
+use crate::client::error::InitializeError;
 use crate::{client::StepOut, cred::Credentials};
 
 /// A Builder to setup a signing and encryption policy for a client context.
@@ -63,16 +65,17 @@ impl<Usage> ClientBuilder<Usage> {
 
 #[cfg(windows)]
 impl<Usage: OutboundUsable> ClientBuilder<Usage> {
-    #[must_use]
-    pub fn initialize(self) -> StepOut<Usage> {
-        StepOut::from_windows(self.inner.initialize().unwrap())
+    pub fn initialize(self) -> Result<StepOut<Usage>, InitializeError> {
+        Ok(StepOut::from_windows(self.inner.initialize().unwrap()))
     }
 }
 
 #[cfg(unix)]
 impl<Usage: OutboundUsable> ClientBuilder<Usage> {
-    #[must_use]
-    pub fn initialize(self) -> StepOut<Usage> {
-        StepOut::from_unix(self.inner.initialize().unwrap())
+    pub fn initialize(self) -> Result<StepOut<Usage>, InitializeError> {
+        self.inner
+            .initialize()
+            .map(StepOut::from_unix)
+            .map_err(InitializeError::from)
     }
 }

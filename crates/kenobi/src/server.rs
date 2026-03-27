@@ -1,4 +1,5 @@
 pub use builder::ServerBuilder;
+pub use error::AcceptError;
 use kenobi_core::{
     cred::usage::InboundUsable,
     typestate::{MaybeDelegation, MaybeEncryption, MaybeSigning},
@@ -14,6 +15,7 @@ use kenobi_windows::server::{
 };
 
 mod builder;
+mod error;
 
 pub struct ServerContext<Usage> {
     #[cfg(windows)]
@@ -58,19 +60,19 @@ impl<Usage> PendingServerContext<Usage> {
 
 #[cfg(windows)]
 impl<Usage: InboundUsable> PendingServerContext<Usage> {
-    pub fn step(self, token: &[u8]) -> StepOut<Usage> {
+    pub fn step(self, token: &[u8]) -> Result<StepOut<Usage>, AcceptError> {
         match self.inner.step(token).unwrap() {
-            WinStepOut::Pending(inner) => StepOut::Pending(PendingServerContext { inner }),
-            WinStepOut::Completed(inner) => StepOut::Finished(ServerContext { inner }),
+            WinStepOut::Pending(inner) => Ok(StepOut::Pending(PendingServerContext { inner })),
+            WinStepOut::Completed(inner) => Ok(StepOut::Finished(ServerContext { inner })),
         }
     }
 }
 #[cfg(unix)]
 impl<Usage: InboundUsable> PendingServerContext<Usage> {
-    pub fn step(self, token: &[u8]) -> StepOut<Usage> {
-        match self.inner.step(token) {
-            UnixStepOut::Pending(inner) => StepOut::Pending(PendingServerContext { inner }),
-            UnixStepOut::Finished(inner) => StepOut::Finished(ServerContext { inner }),
+    pub fn step(self, token: &[u8]) -> Result<StepOut<Usage>, AcceptError> {
+        match self.inner.step(token).map_err(AcceptError::from)? {
+            UnixStepOut::Pending(inner) => Ok(StepOut::Pending(PendingServerContext { inner })),
+            UnixStepOut::Finished(inner) => Ok(StepOut::Finished(ServerContext { inner })),
         }
     }
 }

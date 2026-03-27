@@ -1,5 +1,7 @@
 use kenobi_core::{channel_bindings::Channel, cred::usage::InboundUsable};
 
+#[cfg(unix)]
+use crate::server::AcceptError;
 use crate::{cred::Credentials, server::StepOut};
 
 #[derive(Debug)]
@@ -38,9 +40,8 @@ impl<Usage: InboundUsable> ServerBuilder<Usage> {
         let inner = kenobi_windows::server::ServerBuilder::new_from_credentials(cred.inner);
         ServerBuilder { inner }
     }
-    #[must_use]
-    pub fn initialize(self, token: &[u8]) -> StepOut<Usage> {
-        StepOut::from_windows(self.inner.initialize(token).unwrap())
+    pub fn initialize(self, token: &[u8]) -> Result<StepOut<Usage>, AcceptError> {
+        Ok(StepOut::from_windows(self.inner.initialize(token).unwrap()))
     }
 }
 #[cfg(unix)]
@@ -50,8 +51,10 @@ impl<Usage: InboundUsable> ServerBuilder<Usage> {
         let inner = kenobi_unix::server::ServerBuilder::new(cred.inner);
         ServerBuilder { inner }
     }
-    #[must_use]
-    pub fn initialize(self, token: &[u8]) -> StepOut<Usage> {
-        StepOut::from_unix(self.inner.initialize(token))
+    pub fn initialize(self, token: &[u8]) -> Result<StepOut<Usage>, AcceptError> {
+        self.inner
+            .initialize(token)
+            .map_err(AcceptError::from)
+            .map(StepOut::from_unix)
     }
 }
