@@ -42,6 +42,9 @@ impl ContextHandle {
         } else if let Some(minor_err) = Error::mechanism(minor) {
             return Err(minor_err);
         }
+        let Some(buffer_set) = NonNull::new(buffer_set) else {
+            panic!("invalid session key")
+        };
         Ok(SessionKey(buffer_set))
     }
 }
@@ -58,12 +61,12 @@ impl Debug for ContextHandle {
     }
 }
 
-pub struct SessionKey(*mut gss_buffer_set_desc_struct);
+pub struct SessionKey(NonNull<gss_buffer_set_desc_struct>);
 unsafe impl Sync for SessionKey {}
 unsafe impl Send for SessionKey {}
 impl SessionKey {
     pub fn as_slice(&self) -> &[u8] {
-        let deref: gss_buffer_set_desc_struct = unsafe { *self.0 };
+        let deref: gss_buffer_set_desc_struct = unsafe { *self.0.as_ptr() };
         let key = unsafe { std::slice::from_raw_parts_mut(deref.elements, deref.count) }[0];
         unsafe { std::slice::from_raw_parts(key.value as *const u8, key.length as usize) }
     }
@@ -71,7 +74,7 @@ impl SessionKey {
 impl Drop for SessionKey {
     fn drop(&mut self) {
         let mut _min = 0;
-        let _maj = unsafe { gss_release_buffer_set(&mut _min, &mut self.0) };
+        let _maj = unsafe { gss_release_buffer_set(&mut _min, &mut self.0.as_ptr()) };
     }
 }
 impl Deref for SessionKey {
