@@ -9,13 +9,13 @@ edition.workspace = true
 repository.workspace = true
 
 [dependencies]
-kenobi-core = { version = "0.2", path = "../kenobi-core" }
+kenobi-core = { version = "0.3", path = "../kenobi-core" }
 
 [target.'cfg(windows)'.dependencies]
-kenobi-windows = { version = "0.2", path = "../kenobi-windows" }
+kenobi-windows = { version = "0.3", path = "../kenobi-windows" }
 
 [target.'cfg(unix)'.dependencies]
-kenobi-unix = { version = "0.2", path = "../kenobi-unix" }
+kenobi-unix = { version = "0.3", path = "../kenobi-unix" }
 
 [features]
 native-tls = ["kenobi-unix/native-tls", "kenobi-windows/native-tls"]
