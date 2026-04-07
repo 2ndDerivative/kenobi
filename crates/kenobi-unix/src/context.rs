@@ -14,6 +14,7 @@ use crate::Error;
 pub(crate) struct ContextHandle(NonNull<gss_ctx_id_struct>);
 // Does not expose a mutable interface and is (supposed to be) sole owner of the underlying context handle
 unsafe impl Send for ContextHandle {}
+unsafe impl Sync for ContextHandle {}
 impl ContextHandle {
     /// # Safety
     /// Pointer must be a valid living security context
