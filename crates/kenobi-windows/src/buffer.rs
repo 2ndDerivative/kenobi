@@ -67,7 +67,7 @@ impl std::fmt::Debug for NonResizableVec {
 }
 impl Drop for NonResizableVec {
     fn drop(&mut self) {
-        let _ = unsafe { Box::from_raw(self.arr.as_mut_ptr()) };
+        let _ = unsafe { Box::from_raw(self.arr as *mut [u8]) };
     }
 }
 
