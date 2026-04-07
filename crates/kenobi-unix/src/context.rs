@@ -67,6 +67,8 @@ unsafe impl Send for SessionKey {}
 impl SessionKey {
     pub fn as_slice(&self) -> &[u8] {
         let deref: gss_buffer_set_desc_struct = unsafe { *self.0.as_ptr() };
+        assert!(!deref.elements.is_null());
+        assert_ne!(deref.count, 0);
         let key = unsafe { std::slice::from_raw_parts_mut(deref.elements, deref.count) }[0];
         unsafe { std::slice::from_raw_parts(key.value as *const u8, key.length as usize) }
     }
