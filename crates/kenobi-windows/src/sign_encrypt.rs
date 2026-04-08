@@ -27,6 +27,7 @@ impl ContextHandle {
                 pvBuffer: header.as_mut_ptr() as *mut c_void,
             },
             SecBuffer {
+                // This should become an error rather than a crash, but it should be safe as this still prevents an over-read/write
                 cbBuffer: message.len() as u32,
                 BufferType: SECBUFFER_DATA,
                 pvBuffer: signature.as_mut_ptr() as *mut c_void,
