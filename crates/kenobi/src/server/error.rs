@@ -52,6 +52,7 @@ impl From<AcceptContextError> for AcceptError {
             Error::Denied => Self::InvalidCredentials,
             // TODO this is a kerberos specific error in GSSAPI
             Error::NoAuthority => Self::Unknown,
+            Error::InvalidClientChannelBindings => Self::BadChannelBindings,
         }
     }
 }
