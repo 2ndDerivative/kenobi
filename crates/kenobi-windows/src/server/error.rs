@@ -7,6 +7,7 @@ pub enum AcceptContextError {
     InvalidToken,
     Denied,
     NoAuthority,
+    InvalidClientChannelBindings,
 }
 impl std::error::Error for AcceptContextError {}
 impl Display for AcceptContextError {
@@ -17,6 +18,7 @@ impl Display for AcceptContextError {
             AcceptContextError::InvalidToken => write!(f, "Invalid Token"),
             AcceptContextError::Denied => write!(f, "Access denied"),
             AcceptContextError::NoAuthority => write!(f, "No authenticating authority found"),
+            AcceptContextError::InvalidClientChannelBindings => write!(f, "Invalid channel bindings"),
         }
     }
 }

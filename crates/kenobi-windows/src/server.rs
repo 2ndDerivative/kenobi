@@ -2,7 +2,7 @@ use std::{ffi::c_void, fmt::Display, marker::PhantomData, sync::Arc};
 
 use windows::Win32::{
     Foundation::{
-        SEC_E_INTERNAL_ERROR, SEC_E_INVALID_HANDLE, SEC_E_INVALID_TOKEN, SEC_E_LOGON_DENIED,
+        SEC_E_BAD_BINDINGS, SEC_E_INTERNAL_ERROR, SEC_E_INVALID_HANDLE, SEC_E_INVALID_TOKEN, SEC_E_LOGON_DENIED,
         SEC_E_NO_AUTHENTICATING_AUTHORITY, SEC_E_OK, SEC_E_UNSUPPORTED_FUNCTION, SEC_I_CONTINUE_NEEDED,
     },
     Security::{
@@ -262,6 +262,7 @@ fn step<Usage: InboundUsable>(
         SEC_E_INVALID_TOKEN => Err(AcceptContextError::InvalidToken),
         SEC_E_LOGON_DENIED => Err(AcceptContextError::Denied),
         SEC_E_NO_AUTHENTICATING_AUTHORITY => Err(AcceptContextError::NoAuthority),
+        SEC_E_BAD_BINDINGS => Err(AcceptContextError::InvalidClientChannelBindings),
         SEC_E_UNSUPPORTED_FUNCTION => unreachable!("only applicable from Schannel SSP"),
         e => todo!("unknown error code: {e:?} (\"{}\")", e.message()),
     }
