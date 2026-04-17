@@ -14,6 +14,7 @@ pub struct ServerBuilder<CU> {
     channel_bindings: Option<Box<[u8]>>,
 }
 impl<CU: InboundUsable> ServerBuilder<CU> {
+    #[must_use]
     pub fn new(cred: Arc<Credentials<CU>>) -> ServerBuilder<CU> {
         ServerBuilder {
             cred,
@@ -22,6 +23,8 @@ impl<CU: InboundUsable> ServerBuilder<CU> {
     }
 }
 impl<CU> ServerBuilder<CU> {
+    /// # Errors
+    /// Forwards the failure of the underlying `Channel`
     pub fn bind_to_channel(self, channel: &impl Channel) -> Result<Self, impl std::error::Error> {
         match channel.channel_bindings() {
             Err(e) => Err(e),
@@ -34,6 +37,6 @@ impl<CU> ServerBuilder<CU> {
 }
 impl<CU: InboundUsable> ServerBuilder<CU> {
     pub fn initialize(self, token: &[u8]) -> Result<StepOut<CU>, Error> {
-        step(None, self.cred, token, self.channel_bindings)
+        step(None, self.cred, token, self.channel_bindings.as_deref())
     }
 }

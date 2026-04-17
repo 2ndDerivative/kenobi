@@ -25,14 +25,14 @@ impl ContextHandle {
         self.0.as_ptr()
     }
     pub fn as_ptr(&self) -> *const gss_ctx_id_struct {
-        self.0.as_ptr() as *const gss_ctx_id_struct
+        self.0.as_ptr().cast_const()
     }
     pub fn session_key(&self) -> Result<SessionKey, Error> {
         let mut minor = 0;
         let mut buffer_set: *mut gss_buffer_set_desc_struct = std::ptr::null_mut();
         let major = unsafe {
             gss_inquire_sec_context_by_oid(
-                &mut minor,
+                &raw mut minor,
                 self.0.as_ptr(),
                 GSS_C_INQ_SSPI_SESSION_KEY,
                 std::ptr::from_mut(&mut buffer_set),
@@ -51,8 +51,8 @@ impl ContextHandle {
 }
 impl Drop for ContextHandle {
     fn drop(&mut self) {
-        let mut _s = 0;
-        unsafe { gss_delete_sec_context(&mut _s, &mut NonNull::as_ptr(self.0), std::ptr::null_mut()) };
+        let mut s = 0;
+        unsafe { gss_delete_sec_context(&raw mut s, &mut NonNull::as_ptr(self.0), std::ptr::null_mut()) };
     }
 }
 /// Opaque because it's supposed to be an opaque handle
@@ -76,8 +76,8 @@ impl SessionKey {
 }
 impl Drop for SessionKey {
     fn drop(&mut self) {
-        let mut _min = 0;
-        let _maj = unsafe { gss_release_buffer_set(&mut _min, &mut self.0.as_ptr()) };
+        let mut min = 0;
+        let _maj = unsafe { gss_release_buffer_set(&raw mut min, &mut self.0.as_ptr()) };
     }
 }
 impl Deref for SessionKey {

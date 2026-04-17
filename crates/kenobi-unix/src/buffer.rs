@@ -7,8 +7,8 @@ unsafe impl Sync for Token {}
 unsafe impl Send for Token {}
 impl Drop for Token {
     fn drop(&mut self) {
-        let mut _min = 0;
-        let _maj = unsafe { gss_release_buffer(&mut _min, &mut self.0) };
+        let mut min = 0;
+        let _maj = unsafe { gss_release_buffer(&raw mut min, &raw mut self.0) };
     }
 }
 impl Token {

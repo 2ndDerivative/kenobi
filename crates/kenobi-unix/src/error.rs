@@ -16,7 +16,7 @@ impl MechanismErrorCode {
 }
 impl Display for MechanismErrorCode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write_from_u32(self.0.into(), GSS_C_MECH_CODE as i32, f)
+        write_from_u32(self.0.into(), GSS_C_MECH_CODE.cast_signed(), f)
     }
 }
 
@@ -26,6 +26,7 @@ impl GssErrorCode {
     pub fn new(val: u32) -> Option<Self> {
         NonZero::new(val).map(Self)
     }
+    #[must_use]
     pub fn kind_initialize(self) -> Option<GssInitErrorKind> {
         use GssInitErrorKind as Kind;
         match u32::from(self.0) {
@@ -44,6 +45,7 @@ impl GssErrorCode {
             _ => None,
         }
     }
+    #[must_use]
     pub fn kind_accept(self) -> Option<GssAccErrorKind> {
         use GssAccErrorKind as Kind;
         match u32::from(self.0) {
@@ -64,7 +66,7 @@ impl GssErrorCode {
 }
 impl Display for GssErrorCode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write_from_u32(self.0.into(), GSS_C_GSS_CODE as i32, f)
+        write_from_u32(self.0.into(), GSS_C_GSS_CODE.cast_signed(), f)
     }
 }
 
@@ -77,23 +79,23 @@ fn write_from_u32(val: u32, mechanism: i32, f: &mut std::fmt::Formatter<'_>) -> 
     };
     unsafe {
         gss_display_status(
-            &mut minor_status,
+            &raw mut minor_status,
             val,
             mechanism,
             std::ptr::null_mut(),
-            &mut more,
-            &mut string,
+            &raw mut more,
+            &raw mut string,
         )
     };
-    if !string.value.is_null() {
+    if string.value.is_null() {
+        write!(f, "")?;
+    } else {
         let bytes = unsafe { std::slice::from_raw_parts(string.value as *const u8, string.length) };
         let string = std::str::from_utf8(bytes).unwrap();
         write!(f, "{string}")?;
-    } else {
-        write!(f, "")?;
     }
-    let mut _s = 0;
-    unsafe { gss_release_buffer(&mut _s, &mut string) };
+    let mut s = 0;
+    unsafe { gss_release_buffer(&raw mut s, &raw mut string) };
     Ok(())
 }
 

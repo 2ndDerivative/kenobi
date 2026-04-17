@@ -19,6 +19,8 @@ pub struct ClientBuilder<CU> {
     channel_bindings: Option<Box<[u8]>>,
 }
 impl<CU: OutboundUsable> ClientBuilder<CU> {
+    /// # Errors
+    /// Returns the error from the underlying Name import
     pub fn new(cred: Arc<Credentials<CU>>, target_principal: Option<&str>) -> Result<ClientBuilder<CU>, Error> {
         let target_principal = target_principal
             .map(|t| unsafe { NameHandle::import(t, GSS_C_NT_USER_NAME) })
@@ -33,28 +35,36 @@ impl<CU: OutboundUsable> ClientBuilder<CU> {
     }
 }
 impl<CU> ClientBuilder<CU> {
+    #[must_use]
     pub fn with_flag(mut self, flags: CapabilityFlags) -> Self {
         self.flags.add_flag(flags);
         self
     }
+    #[must_use]
     pub fn request_mutual_auth(self) -> Self {
         self.with_flag(CapabilityFlags::MUTUAL_AUTH)
     }
+    #[must_use]
     pub fn request_signing(self) -> Self {
         self.with_flag(CapabilityFlags::INTEGRITY)
     }
+    #[must_use]
     pub fn request_encryption(self) -> Self {
         self.with_flag(CapabilityFlags::CONFIDENTIALITY)
     }
+    #[must_use]
     pub fn allow_delegation(self) -> Self {
         self.with_flag(CapabilityFlags::DELEGATE)
     }
+    #[must_use]
     pub fn request_duration(self, duration: Duration) -> Self {
         Self {
             requested_duration: Some(duration),
             ..self
         }
     }
+    /// # Errors
+    /// Forwards the failure of the underlying `Channel`
     pub fn bind_to_channel<C: Channel>(self, channel: &C) -> Result<Self, C::Error> {
         match channel.channel_bindings() {
             Err(e) => Err(e),

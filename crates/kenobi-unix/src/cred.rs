@@ -44,24 +44,22 @@ impl<Usage: CredentialsUsage> Credentials<Usage> {
         };
         let mut mech_set = gss_OID_set_desc {
             count: 1,
-            elements: &mut mech,
+            elements: &raw mut mech,
         };
         if let Some(error) = GssErrorCode::new(unsafe {
             gss_acquire_cred(
-                &mut minor,
-                name.as_mut().map(|re| re.as_mut()).unwrap_or_default(),
-                time_required
-                    .map(|d| d.as_secs().try_into().unwrap_or(u32::MAX))
-                    .unwrap_or(_GSS_C_INDEFINITE),
-                &mut mech_set,
+                &raw mut minor,
+                name.as_mut().map(NameHandle::as_mut).unwrap_or_default(),
+                time_required.map_or(_GSS_C_INDEFINITE, |d| d.as_secs().try_into().unwrap_or(u32::MAX)),
+                &raw mut mech_set,
                 Usage::to_c(),
-                &mut cred_handle,
+                &raw mut cred_handle,
                 std::ptr::null_mut(),
-                &mut validity,
+                &raw mut validity,
             )
         }) {
             return Err(error.into());
-        };
+        }
         if let Some(error) = MechanismErrorCode::new(minor) {
             return Err(error.into());
         }
@@ -82,9 +80,11 @@ impl<Usage> Credentials<Usage> {
     pub(crate) fn as_raw(&self) -> NonNull<gss_cred_id_struct> {
         self.cred_handle
     }
+    #[must_use]
     pub fn mechanism(&self) -> Mechanism {
         self.mechanism
     }
+    #[must_use]
     pub fn valid_until(&self) -> Instant {
         self.valid_until
     }
@@ -102,6 +102,8 @@ impl<Usage> Credentials<Usage> {
     }
 }
 impl Credentials<Inbound> {
+    /// # Errors
+    /// The underlying call to ``gss_acquire_cred`` failed
     pub fn inbound(
         principal: Option<&str>,
         time_required: Option<Duration>,
@@ -113,6 +115,8 @@ impl Credentials<Inbound> {
     }
 }
 impl Credentials<Outbound> {
+    /// # Errors
+    /// The underlying call to ``gss_acquire_cred`` failed
     pub fn outbound(
         principal: Option<&str>,
         time_required: Option<Duration>,
@@ -122,6 +126,8 @@ impl Credentials<Outbound> {
     }
 }
 impl Credentials<Both> {
+    /// # Errors
+    /// The underlying call to ``gss_acquire_cred`` failed
     pub fn both(
         principal: Option<&str>,
         time_required: Option<Duration>,
@@ -134,9 +140,9 @@ impl Credentials<Both> {
 }
 impl<T> Drop for Credentials<T> {
     fn drop(&mut self) {
-        let mut _s = 0;
+        let mut s = 0;
         unsafe {
-            gss_release_cred(&mut _s, &mut NonNull::as_ptr(self.cred_handle));
+            gss_release_cred(&raw mut s, &mut NonNull::as_ptr(self.cred_handle));
         }
     }
 }
@@ -153,16 +159,16 @@ pub trait CredentialsUsage {
 }
 impl CredentialsUsage for Inbound {
     fn to_c() -> i32 {
-        GSS_C_ACCEPT as i32
+        GSS_C_ACCEPT.cast_signed()
     }
 }
 impl CredentialsUsage for Outbound {
     fn to_c() -> i32 {
-        GSS_C_INITIATE as i32
+        GSS_C_INITIATE.cast_signed()
     }
 }
 impl CredentialsUsage for Both {
     fn to_c() -> i32 {
-        GSS_C_BOTH as i32
+        GSS_C_BOTH.cast_signed()
     }
 }
