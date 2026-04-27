@@ -1,8 +1,19 @@
 #[cfg(feature = "rustls")]
 use std::convert::Infallible;
 
+/// Defines a channel a Security Context can bind to using `bind_to_channel`
+///
+/// The `channel_bindings` method should return the `tls-server-end-point` channel binding bytes according to [RFC5929](https://datatracker.ietf.org/doc/html/rfc5929)
 pub trait Channel {
     type Error: std::error::Error;
+    /// Should define a Kerberos/SSPI-compatible channel binding token for this channel,
+    /// preferable `tls-server-end-point`
+    ///
+    /// # Errors
+    /// This error can be entirely defined by the underlying channel and is returned in the `kenobi`
+    /// crates before the first context initialization.
+    ///
+    /// If you want to avoid defining an error, use `Infallible`
     fn channel_bindings(&self) -> Result<Option<Vec<u8>>, Self::Error>;
 }
 
@@ -46,7 +57,15 @@ impl Channel for rustls::pki_types::CertificateDer<'_> {
 #[cfg(feature = "rustls")]
 fn tls_server_end_point_digest(cert_der: &[u8]) -> Vec<u8> {
     use sha2::{Digest, Sha256, Sha384, Sha512};
-    use x509_parser::{oid_registry::*, prelude::*, signature_algorithm::RsaSsaPssParams};
+    use x509_parser::{
+        oid_registry::{
+            OID_NIST_HASH_SHA384, OID_NIST_HASH_SHA512, OID_PKCS1_MD5WITHRSAENC, OID_PKCS1_RSASSAPSS,
+            OID_PKCS1_SHA1WITHRSA, OID_PKCS1_SHA256WITHRSA, OID_PKCS1_SHA384WITHRSA, OID_PKCS1_SHA512WITHRSA,
+            OID_SIG_ECDSA_WITH_SHA384, OID_SIG_ECDSA_WITH_SHA512,
+        },
+        prelude::*,
+        signature_algorithm::RsaSsaPssParams,
+    };
 
     let Ok((_, x509)) = X509Certificate::from_der(cert_der) else {
         return Sha256::digest(cert_der).to_vec();

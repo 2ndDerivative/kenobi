@@ -46,17 +46,18 @@ impl<CU, S, E, D> ServerContext<CU, S, E, D> {
             _enc: PhantomData,
         }
     }
+    #[must_use]
     pub fn last_token(&self) -> Option<&[u8]> {
-        self.last_token.as_ref().map(|t| t.as_slice())
+        self.last_token.as_ref().map(Token::as_slice)
     }
     pub fn client_name(&mut self) -> Result<impl Display + Send + Sync, Error> {
         let mut min = 0;
         let mut initiator_name = ptr::null_mut();
         let maj = unsafe {
             gss_inquire_context(
-                &mut min,
+                &raw mut min,
                 self.context.as_mut(),
-                &mut initiator_name,
+                &raw mut initiator_name,
                 ptr::null_mut(),
                 ptr::null_mut(),
                 ptr::null_mut(),
@@ -80,6 +81,10 @@ impl<CU, S, E, D> ServerContext<CU, S, E, D> {
 }
 impl<CU, E, D> ServerContext<CU, MaybeSigning, E, D> {
     #[allow(clippy::type_complexity)]
+    /// Statically ensures the `ServerContext` is allowed to use signing operations
+    ///
+    /// # Errors
+    /// an error is `GSS_C_INTEG_FLAG` not being set on the finished context, but gives back the context without Signing enabled
     pub fn check_signing(self) -> Result<ServerContext<CU, Signing, E, D>, ServerContext<CU, NoSigning, E, D>> {
         if self.attributes & GSS_C_INTEG_FLAG != 0 {
             Ok(self.change_policy())
@@ -89,6 +94,10 @@ impl<CU, E, D> ServerContext<CU, MaybeSigning, E, D> {
     }
 }
 impl<CU, S, D> ServerContext<CU, S, MaybeEncryption, D> {
+    /// Statically ensures the `ServerContext` is allowed to use encryption operations
+    ///
+    /// # Errors
+    /// an error is `GSS_C_CONF_FLAG` not being set on the finished context, but gives back the context without Encryption enabled
     #[allow(clippy::type_complexity)]
     pub fn check_encryption(
         self,
@@ -102,15 +111,21 @@ impl<CU, S, D> ServerContext<CU, S, MaybeEncryption, D> {
 }
 
 impl<CU, E, D> ServerContext<CU, Signing, E, D> {
+    /// # Errors
+    /// - Error from the underlying `gss_wrap`
     pub fn sign(&mut self, message: &[u8]) -> Result<sign_encrypt::Signed, crate::Error> {
         sign_encrypt::sign(&mut self.context, message)
     }
 
+    /// # Errors
+    /// - Error from the underlying `gss_unwrap`
     pub fn unwrap(&mut self, message: &[u8]) -> Result<sign_encrypt::Plaintext, crate::Error> {
         sign_encrypt::unwrap_raw(&mut self.context, message)
     }
 }
 impl<CU, S, D> ServerContext<CU, S, Encryption, D> {
+    /// # Errors
+    /// - Error from the underlying `gss_wrap`
     pub fn encrypt(&mut self, message: &[u8]) -> Result<sign_encrypt::Encrypted, crate::Error> {
         sign_encrypt::encrypt(&mut self.context, message)
     }
@@ -127,6 +142,7 @@ impl<CU: InboundUsable> PendingServerContext<CU> {
     }
 }
 impl<CU> PendingServerContext<CU> {
+    #[must_use]
     pub fn next_token(&self) -> &[u8] {
         self.next_token.as_slice()
     }
@@ -136,7 +152,7 @@ fn step<CU: InboundUsable>(
     mut ctx: Option<ContextHandle>,
     cred: Arc<Credentials<CU>>,
     token: &[u8],
-    channel_bindings: Option<Box<[u8]>>,
+    channel_bindings: Option<&[u8]>,
 ) -> Result<StepOut<CU>, Error> {
     let mut ctx_ptr = ctx.as_mut().map(ContextHandle::as_mut).unwrap_or_default();
     let mut minor = 0;
@@ -144,24 +160,24 @@ fn step<CU: InboundUsable>(
         length: token.len(),
         value: token.as_ptr() as *mut c_void,
     };
-    let mut channel_binding_buffer = channel_bindings.as_deref().map(as_channel_bindings);
+    let mut channel_binding_buffer = channel_bindings.map(as_channel_bindings);
     let mut next_token = empty_token();
     let mut attributes = 0;
     let mut remaining_seconds = 0;
     let mut delegated_cred_handle = std::ptr::null_mut();
     match unsafe {
         gss_accept_sec_context(
-            &mut minor,
-            &mut ctx_ptr,
+            &raw mut minor,
+            &raw mut ctx_ptr,
             cred.as_raw().as_ptr(),
-            &mut token_buf,
+            &raw mut token_buf,
             channel_binding_buffer.as_mut().map_or(ptr::null_mut(), ptr::from_mut),
             ptr::null_mut(),
             ptr::null_mut(),
-            &mut next_token,
-            &mut attributes,
-            &mut remaining_seconds,
-            &mut delegated_cred_handle,
+            &raw mut next_token,
+            &raw mut attributes,
+            &raw mut remaining_seconds,
+            &raw mut delegated_cred_handle,
         )
     } {
         GSS_S_COMPLETE => {

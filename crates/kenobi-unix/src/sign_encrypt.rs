@@ -4,7 +4,7 @@ use std::{
     ops::Deref,
 };
 
-use libgssapi_sys::{GSS_C_QOP_DEFAULT, gss_buffer_desc, gss_ctx_id_struct, gss_release_buffer, gss_unwrap, gss_wrap};
+use libgssapi_sys::{GSS_C_QOP_DEFAULT, gss_buffer_desc, gss_release_buffer, gss_unwrap, gss_wrap};
 
 use crate::{Error, context::ContextHandle};
 
@@ -28,23 +28,21 @@ fn wrap(ctx: &mut ContextHandle, encrypt: bool, message: &[u8]) -> Result<Securi
     let mut conf_state = 0;
     if let Some(major) = Error::gss(unsafe {
         gss_wrap(
-            &mut minor,
-            ctx.as_ptr() as *mut gss_ctx_id_struct,
-            if encrypt { 1 } else { 0 },
+            &raw mut minor,
+            ctx.as_ptr().cast_mut(),
+            i32::from(encrypt),
             GSS_C_QOP_DEFAULT,
-            &mut input_buffer_desc,
-            &mut conf_state,
-            &mut output_buffer,
+            &raw mut input_buffer_desc,
+            &raw mut conf_state,
+            &raw mut output_buffer,
         )
     }) {
         return Err(major);
-    };
+    }
     if let Some(err) = Error::mechanism(minor) {
         return Err(err);
     }
-    if encrypt && conf_state == 0 {
-        panic!("Failed to encrypt")
-    }
+    assert!(!(encrypt && conf_state == 0), "Failed to encrypt");
     Ok(SecurityBuffer(output_buffer))
 }
 
@@ -61,16 +59,16 @@ pub(crate) fn unwrap_raw(ctx: &mut ContextHandle, message: &[u8]) -> Result<Plai
     let mut conf_state = 0;
     if let Some(major) = Error::gss(unsafe {
         gss_unwrap(
-            &mut minor,
-            ctx.as_ptr() as *mut gss_ctx_id_struct,
-            &mut input_buffer_desc,
-            &mut output_buffer,
-            &mut conf_state,
+            &raw mut minor,
+            ctx.as_ptr().cast_mut(),
+            &raw mut input_buffer_desc,
+            &raw mut output_buffer,
+            &raw mut conf_state,
             std::ptr::null_mut(),
         )
     }) {
         return Err(major);
-    };
+    }
     if let Some(minor) = Error::mechanism(minor) {
         return Err(minor);
     }
@@ -95,9 +93,11 @@ impl Deref for Plaintext {
     }
 }
 impl Plaintext {
+    #[must_use]
     pub fn as_slice(&self) -> &[u8] {
         self.buffer.as_slice()
     }
+    #[must_use]
     pub fn was_encrypted(&self) -> bool {
         self.was_encrypted
     }
@@ -106,6 +106,7 @@ impl Plaintext {
 #[derive(Debug)]
 pub struct Encrypted(SecurityBuffer);
 impl Encrypted {
+    #[must_use]
     pub fn as_slice(&self) -> &[u8] {
         self.0.as_slice()
     }
@@ -124,6 +125,7 @@ impl AsRef<[u8]> for Encrypted {
 #[derive(Debug)]
 pub struct Signed(SecurityBuffer);
 impl Signed {
+    #[must_use]
     pub fn as_slice(&self) -> &[u8] {
         self.0.as_slice()
     }
@@ -144,8 +146,8 @@ impl Debug for SecurityBuffer {
 }
 impl Drop for SecurityBuffer {
     fn drop(&mut self) {
-        let mut _min = 0;
-        let _maj = unsafe { gss_release_buffer(&mut _min, &mut self.0) };
+        let mut min = 0;
+        let _maj = unsafe { gss_release_buffer(&raw mut min, &raw mut self.0) };
     }
 }
 impl SecurityBuffer {

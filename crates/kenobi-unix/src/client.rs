@@ -48,6 +48,10 @@ impl<CU: OutboundUsable> ClientContext<CU, NoSigning, NoEncryption, NoDelegation
 }
 impl<CU, E, D> ClientContext<CU, MaybeSigning, E, D> {
     #[allow(clippy::type_complexity)]
+    /// Statically ensures the `ClientContext` is allowed to use signing operations
+    ///
+    /// # Errors
+    /// an error is `GSS_C_INTEG_FLAG` not being set on the finished context, but gives back the context without Signing enabled
     pub fn check_signing(self) -> Result<ClientContext<CU, Signing, E, D>, ClientContext<CU, NoSigning, E, D>> {
         if self.attributes & GSS_C_INTEG_FLAG != 0 {
             Ok(self.change_policy())
@@ -58,6 +62,10 @@ impl<CU, E, D> ClientContext<CU, MaybeSigning, E, D> {
 }
 impl<CU, S, D> ClientContext<CU, S, MaybeEncryption, D> {
     #[allow(clippy::type_complexity)]
+    /// Statically ensures the `ClientContext` is allowed to use encryption operations
+    ///
+    /// # Errors
+    /// an error is `GSS_C_CONF_FLAG` not being set on the finished context, but gives back the context without Encryption enabled
     pub fn check_encryption(
         self,
     ) -> Result<ClientContext<CU, S, Encryption, D>, ClientContext<CU, S, NoEncryption, D>> {
@@ -70,6 +78,10 @@ impl<CU, S, D> ClientContext<CU, S, MaybeEncryption, D> {
 }
 impl<CU, S, E> ClientContext<CU, S, E, MaybeDelegation> {
     #[allow(clippy::type_complexity)]
+    /// Statically ensures the `ClientContext` is set up to forwarding the TGT
+    ///
+    /// # Errors
+    /// an error is `GSS_C_DELEG_FLAG` not being set on the finished context, but gives back the context without Delegation operations enabled
     pub fn check_delegation(
         self,
     ) -> Result<ClientContext<CU, S, E, Delegation>, ClientContext<CU, S, E, NoDelegation>> {
@@ -90,24 +102,33 @@ impl<CU, S1, E1, D1> ClientContext<CU, S1, E1, D1> {
             marker: PhantomData,
         }
     }
+    #[must_use]
     pub fn last_token(&self) -> Option<&[u8]> {
-        self.next_token.as_ref().map(|t| t.as_slice())
+        self.next_token.as_ref().map(Token::as_slice)
     }
+    /// # Errors
+    /// Forwards the failure from `gss_inquire_sec_context_by_oid`
     pub fn session_key(&self) -> Result<SessionKey, Error> {
         self.context.session_key()
     }
 }
 
 impl<CU, E, D> ClientContext<CU, Signing, E, D> {
+    /// # Errors
+    /// - Error from the underlying `gss_wrap`
     pub fn sign(&mut self, message: &[u8]) -> Result<sign_encrypt::Signed, Error> {
         sign_encrypt::sign(&mut self.context, message)
     }
 
+    /// # Errors
+    /// - Error from the underlying `gss_unwrap`
     pub fn unwrap(&mut self, message: &[u8]) -> Result<sign_encrypt::Plaintext, Error> {
         sign_encrypt::unwrap_raw(&mut self.context, message)
     }
 }
 impl<CU, S, D> ClientContext<CU, S, Encryption, D> {
+    /// # Errors
+    /// - Error from the underlying `gss_wrap`
     pub fn encrypt(&mut self, message: &[u8]) -> Result<sign_encrypt::Encrypted, Error> {
         sign_encrypt::encrypt(&mut self.context, message)
     }
@@ -138,6 +159,7 @@ impl<CU: OutboundUsable> PendingClientContext<CU> {
     }
 }
 impl<CU> PendingClientContext<CU> {
+    #[must_use]
     pub fn next_token(&self) -> &[u8] {
         self.next_token.as_slice()
     }
@@ -158,33 +180,34 @@ fn step<CU: OutboundUsable>(
     let mut attributes = 0;
     let mut next_token = empty_token();
     let mut mech_type = ptr::null_mut();
-    let mut input_token = token
-        .map(|slice| gss_buffer_desc_struct {
-            length: slice.len(),
-            value: slice.as_ptr() as *mut c_void,
-        })
-        .unwrap_or(gss_buffer_desc_struct {
+    let mut input_token = token.map_or(
+        gss_buffer_desc_struct {
             length: 0,
             value: ptr::null_mut(),
-        });
+        },
+        |slice| gss_buffer_desc_struct {
+            length: slice.len(),
+            value: slice.as_ptr() as *mut c_void,
+        },
+    );
     let mut channel_application_buffer = channel_bindings.as_deref().map(as_channel_bindings);
     match unsafe {
         gss_init_sec_context(
-            &mut minor_status,
+            &raw mut minor_status,
             cred.as_raw().as_ptr(),
-            &mut ctx_ptr,
-            target_principal.as_mut().map_or(ptr::null_mut(), |nn| nn.as_mut()),
+            &raw mut ctx_ptr,
+            target_principal.as_mut().map_or(ptr::null_mut(), NameHandle::as_mut),
             &mut mech_kerberos(),
             convert_flags(flags),
             requested_duration.map_or(_GSS_C_INDEFINITE, |d| d.as_secs().min(u32::MAX.into()) as u32),
             channel_application_buffer
                 .as_mut()
                 .map_or(ptr::null_mut(), ptr::from_mut),
-            &mut input_token,
-            &mut mech_type,
-            &mut next_token,
-            &mut attributes,
-            &mut remaining_seconds,
+            &raw mut input_token,
+            &raw mut mech_type,
+            &raw mut next_token,
+            &raw mut attributes,
+            &raw mut remaining_seconds,
         )
     } {
         GSS_S_COMPLETE => Ok(StepOut::Finished(ClientContext {
@@ -209,12 +232,12 @@ fn step<CU: OutboundUsable>(
         }
         code => {
             if ctx.is_none() && !ctx_ptr.is_null() {
-                let mut _s = 0;
-                unsafe { gss_delete_sec_context(&mut _s, &mut ctx_ptr, ptr::null_mut()) };
+                let mut s = 0;
+                unsafe { gss_delete_sec_context(&raw mut s, &raw mut ctx_ptr, ptr::null_mut()) };
             }
             if let Some(err) = MechanismErrorCode::new(minor_status) {
                 return Err(err.into());
-            };
+            }
             Err(GssErrorCode::new(code).expect("is not GSS_C_COMPLETE").into())
         }
     }

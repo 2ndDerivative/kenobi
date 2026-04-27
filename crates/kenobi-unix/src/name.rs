@@ -33,8 +33,8 @@ impl NameHandle {
 }
 impl Drop for NameHandle {
     fn drop(&mut self) {
-        let mut _s = 0;
-        unsafe { gss_release_name(&mut _s, &mut NonNull::as_ptr(self.name)) };
+        let mut s = 0;
+        unsafe { gss_release_name(&raw mut s, &mut NonNull::as_ptr(self.name)) };
     }
 }
 impl Debug for NameHandle {
@@ -51,9 +51,9 @@ impl Display for NameHandle {
         };
         let major = unsafe {
             gss_display_name(
-                &mut minor,
+                &raw mut minor,
                 NonNull::as_ptr(self.name),
-                &mut buffer,
+                &raw mut buffer,
                 std::ptr::null_mut(),
             )
         };
@@ -63,13 +63,13 @@ impl Display for NameHandle {
         if let Some(_mech_err) = Error::mechanism(minor) {
             return Ok(());
         }
-        let sl = unsafe { std::slice::from_raw_parts(buffer.value as *mut u8, buffer.length) };
+        let sl = unsafe { std::slice::from_raw_parts(buffer.value.cast(), buffer.length) };
         let Ok(str) = std::str::from_utf8(sl) else {
             return Ok(());
         };
         write!(f, "{str}")?;
-        let mut _min = 0;
-        let _maj = unsafe { gss_release_buffer(&mut _min, &mut buffer) };
+        let mut min = 0;
+        let _maj = unsafe { gss_release_buffer(&raw mut min, &raw mut buffer) };
         Ok(())
     }
 }
@@ -82,10 +82,10 @@ unsafe fn import_name(principal: &str, oid: gss_OID) -> Result<NonNull<gss_name_
     };
     let mut name = std::ptr::null_mut::<gss_name_struct>();
     if let Some(error) = GssErrorCode::new(unsafe {
-        libgssapi_sys::gss_import_name(&mut minor, &mut namebuffer as gss_buffer_t, oid, &mut name)
+        libgssapi_sys::gss_import_name(&raw mut minor, &mut namebuffer as gss_buffer_t, oid, &raw mut name)
     }) {
         return Err(error.into());
-    };
+    }
     if let Some(err) = MechanismErrorCode::new(minor) {
         return Err(err.into());
     }
