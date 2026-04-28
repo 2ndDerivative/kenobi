@@ -31,7 +31,7 @@ mod error;
 mod typestate;
 
 pub use builder::ServerBuilder;
-pub use error::AcceptContextError;
+pub use error::{AcceptContextError, AcceptContextErrorKind};
 use kenobi_core::typestate::{
     Delegation, Encryption, MaybeDelegation, MaybeEncryption, MaybeSigning, NoDelegation, NoEncryption, NoSigning,
     Signing,
@@ -233,39 +233,40 @@ fn step<Usage: InboundUsable>(
         )
     };
     token_buffer.set_length(out_token_buffer.cbBuffer);
-    match hres {
+    let error = match hres {
         SEC_E_OK => {
             // If context didn't exit yet, pick up new context
             let context = context.unwrap_or_else(|| unsafe { ContextHandle::from_raw(new_ctx_ptr) });
             // Flag checks
-            Ok(StepOut::Completed(ServerContext {
+            return Ok(StepOut::Completed(ServerContext {
                 cred,
                 context,
                 attributes,
                 token_buffer,
                 _enc: PhantomData,
-            }))
+            }));
         }
         SEC_I_CONTINUE_NEEDED => {
             // If context didn't exit yet, pick up new context
             let context = context.unwrap_or_else(|| unsafe { ContextHandle::from_raw(new_ctx_ptr) });
-            Ok(StepOut::Pending(PendingServerContext {
+            return Ok(StepOut::Pending(PendingServerContext {
                 cred,
                 context,
                 flags,
                 attributes,
                 token_buffer,
-            }))
+            }));
         }
-        SEC_E_INTERNAL_ERROR => Err(AcceptContextError::Internal),
-        SEC_E_INVALID_HANDLE => Err(AcceptContextError::InvalidHandle),
-        SEC_E_INVALID_TOKEN => Err(AcceptContextError::InvalidToken),
-        SEC_E_LOGON_DENIED => Err(AcceptContextError::Denied),
-        SEC_E_NO_AUTHENTICATING_AUTHORITY => Err(AcceptContextError::NoAuthority),
-        SEC_E_BAD_BINDINGS => Err(AcceptContextError::InvalidClientChannelBindings),
+        SEC_E_INTERNAL_ERROR => AcceptContextErrorKind::Internal,
+        SEC_E_INVALID_HANDLE => AcceptContextErrorKind::InvalidHandle,
+        SEC_E_INVALID_TOKEN => AcceptContextErrorKind::InvalidToken,
+        SEC_E_LOGON_DENIED => AcceptContextErrorKind::Denied,
+        SEC_E_NO_AUTHENTICATING_AUTHORITY => AcceptContextErrorKind::NoAuthority,
+        SEC_E_BAD_BINDINGS => AcceptContextErrorKind::InvalidClientChannelBindings,
         SEC_E_UNSUPPORTED_FUNCTION => unreachable!("only applicable from Schannel SSP"),
         e => todo!("unknown error code: {e:?} (\"{}\")", e.message()),
-    }
+    };
+    Err(AcceptContextError::new(error, Some(token_buffer)))
 }
 
 fn convert_flags(flag: CapabilityFlags) -> ASC_REQ_FLAGS {

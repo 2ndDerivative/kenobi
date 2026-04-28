@@ -1,5 +1,5 @@
 pub use builder::ServerBuilder;
-pub use error::AcceptError;
+pub use error::{AcceptError, AcceptErrorKind};
 use kenobi_core::{
     cred::usage::InboundUsable,
     typestate::{MaybeDelegation, MaybeEncryption, MaybeSigning},

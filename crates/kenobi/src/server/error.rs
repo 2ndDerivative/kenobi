@@ -1,10 +1,12 @@
 #[cfg(windows)]
-use kenobi_windows::server::AcceptContextError;
+use kenobi_windows::server::{AcceptContextError, AcceptContextErrorKind};
 
 pub struct AcceptError {
     pub kind: AcceptErrorKind,
     #[cfg(unix)]
     inner: Option<kenobi_unix::server::StepError>,
+    #[cfg(windows)]
+    inner: kenobi_windows::server::AcceptContextError,
 }
 impl AcceptError {
     #[cfg(unix)]
@@ -13,7 +15,7 @@ impl AcceptError {
     }
     #[cfg(windows)]
     pub fn error_token(&self) -> Option<&[u8]> {
-        None
+        self.inner.error_token()
     }
 }
 
@@ -86,16 +88,16 @@ impl From<kenobi_unix::server::StepError> for AcceptError {
 #[cfg(windows)]
 impl From<AcceptContextError> for AcceptError {
     fn from(value: AcceptContextError) -> Self {
-        use AcceptContextError as Error;
-        let kind = match value {
-            Error::Internal => AcceptErrorKind::Unknown,
-            Error::InvalidHandle => AcceptErrorKind::InvalidContext,
-            Error::InvalidToken => AcceptErrorKind::DefectiveToken,
-            Error::Denied => AcceptErrorKind::InvalidCredentials,
+        use AcceptContextErrorKind as Kind;
+        let kind = match value.kind() {
+            Kind::Internal => AcceptErrorKind::Unknown,
+            Kind::InvalidHandle => AcceptErrorKind::InvalidContext,
+            Kind::InvalidToken => AcceptErrorKind::DefectiveToken,
+            Kind::Denied => AcceptErrorKind::InvalidCredentials,
             // TODO this is a kerberos specific error in GSSAPI
-            Error::NoAuthority => AcceptErrorKind::Unknown,
-            Error::InvalidClientChannelBindings => AcceptErrorKind::BadChannelBindings,
+            Kind::NoAuthority => AcceptErrorKind::Unknown,
+            Kind::InvalidClientChannelBindings => AcceptErrorKind::BadChannelBindings,
         };
-        Self { kind }
+        Self { kind, inner: value }
     }
 }
