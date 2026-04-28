@@ -2,13 +2,16 @@
 use kenobi_windows::server::{AcceptContextError, AcceptContextErrorKind};
 
 pub struct AcceptError {
-    pub kind: AcceptErrorKind,
+    kind: AcceptErrorKind,
     #[cfg(unix)]
     inner: Option<kenobi_unix::server::StepError>,
     #[cfg(windows)]
     inner: kenobi_windows::server::AcceptContextError,
 }
 impl AcceptError {
+    pub fn kind(&self) -> AcceptErrorKind {
+        self.kind
+    }
     #[cfg(unix)]
     pub fn error_token(&self) -> Option<&[u8]> {
         self.inner.as_ref().and_then(|i| i.error_token())
