@@ -21,6 +21,7 @@ use crate::{
     buffer::{Token, as_channel_bindings, empty_token},
     context::ContextHandle,
     cred::Credentials,
+    error::{ErrorKind, GssErrorCode},
     name::NameHandle,
     sign_encrypt,
 };
@@ -66,11 +67,11 @@ impl<CU, S, E, D> ServerContext<CU, S, E, D> {
                 ptr::null_mut(),
             )
         };
-        if let Some(err) = Error::gss(maj) {
-            return Err(err);
+        if let Some(err) = ErrorKind::gss(maj) {
+            return Err(Error::new(err));
         }
-        if let Some(err_min) = Error::mechanism(min) {
-            return Err(err_min);
+        if let Some(err_min) = ErrorKind::mechanism(min) {
+            return Err(Error::new(err_min));
         }
         let Some(nn_name) = NonNull::new(initiator_name) else {
             panic!("gss returned null pointer despite okay value");
@@ -137,7 +138,7 @@ pub struct PendingServerContext<CU> {
     next_token: Token,
 }
 impl<CU: InboundUsable> PendingServerContext<CU> {
-    pub fn step(self, token: &[u8]) -> Result<StepOut<CU>, Error> {
+    pub fn step(self, token: &[u8]) -> Result<StepOut<CU>, StepError> {
         step(Some(self.context), self.cred, token, None)
     }
 }
@@ -153,7 +154,7 @@ fn step<CU: InboundUsable>(
     cred: Arc<Credentials<CU>>,
     token: &[u8],
     channel_bindings: Option<&[u8]>,
-) -> Result<StepOut<CU>, Error> {
+) -> Result<StepOut<CU>, StepError> {
     let mut ctx_ptr = ctx.as_mut().map(ContextHandle::as_mut).unwrap_or_default();
     let mut minor = 0;
     let mut token_buf = gss_buffer_desc_struct {
@@ -212,11 +213,45 @@ fn step<CU: InboundUsable>(
                 next_token,
             }))
         }
-        code => todo!("Error code: {code:?}"),
+        code => {
+            let major = ErrorKind::Gss(GssErrorCode::new(code).expect("it's not zero"));
+            let error_token = unsafe { Token::from_raw(next_token) };
+            Err(StepError::new(major, error_token))
+        }
     }
 }
 
 pub enum StepOut<CU> {
     Pending(PendingServerContext<CU>),
     Finished(ServerContext<CU, MaybeSigning, MaybeEncryption, MaybeDelegation>),
+}
+
+pub struct StepError {
+    kind: ErrorKind,
+    token: Option<Token>,
+}
+impl std::fmt::Debug for StepError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Error").field("kind", &self.kind).finish()
+    }
+}
+impl StepError {
+    pub(crate) fn new(kind: ErrorKind, token: Option<Token>) -> Self {
+        Self { kind, token }
+    }
+    pub fn kind(&self) -> ErrorKind {
+        self.kind
+    }
+    pub fn error_token(&self) -> Option<&[u8]> {
+        self.token.as_ref().map(|t| t.as_slice())
+    }
+}
+impl std::error::Error for StepError {}
+impl Display for StepError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.kind {
+            ErrorKind::Gss(gss) => gss.fmt(f),
+            ErrorKind::Mechanism(mech) => mech.fmt(f),
+        }
+    }
 }

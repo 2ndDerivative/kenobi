@@ -14,7 +14,7 @@ use libgssapi_sys::{
 
 use crate::{
     Error,
-    error::{GssErrorCode, MechanismErrorCode},
+    error::{ErrorKind, GssErrorCode, MechanismErrorCode},
     name::NameHandle,
 };
 
@@ -58,15 +58,15 @@ impl<Usage: CredentialsUsage> Credentials<Usage> {
                 &raw mut validity,
             )
         }) {
-            return Err(error.into());
+            return Err(Error::new(error.into()));
         }
         if let Some(error) = MechanismErrorCode::new(minor) {
-            return Err(error.into());
+            return Err(Error::new(error.into()));
         }
 
         let valid_until = Instant::now() + Duration::from_secs(validity.into());
         let Some(cred_handle) = NonNull::new(cred_handle) else {
-            return Err(Error::gss(_GSS_S_FAILURE).unwrap());
+            return Err(Error::new(ErrorKind::gss(_GSS_S_FAILURE).unwrap()));
         };
         Ok(Self {
             cred_handle,

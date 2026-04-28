@@ -9,7 +9,7 @@ use libgssapi_sys::{
     gss_inquire_sec_context_by_oid, gss_release_buffer_set,
 };
 
-use crate::Error;
+use crate::{Error, error::ErrorKind};
 
 pub(crate) struct ContextHandle(NonNull<gss_ctx_id_struct>);
 // Does not expose a mutable interface and is (supposed to be) sole owner of the underlying context handle
@@ -38,10 +38,10 @@ impl ContextHandle {
                 std::ptr::from_mut(&mut buffer_set),
             )
         };
-        if let Some(err) = Error::gss(major) {
-            return Err(err);
-        } else if let Some(minor_err) = Error::mechanism(minor) {
-            return Err(minor_err);
+        if let Some(err) = ErrorKind::gss(major) {
+            return Err(Error::new(err));
+        } else if let Some(minor_err) = ErrorKind::mechanism(minor) {
+            return Err(Error::new(minor_err));
         }
         let Some(buffer_set) = NonNull::new(buffer_set) else {
             panic!("invalid session key")

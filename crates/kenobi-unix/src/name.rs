@@ -11,7 +11,7 @@ use libgssapi_sys::{
 
 use crate::{
     Error,
-    error::{GssErrorCode, MechanismErrorCode},
+    error::{ErrorKind, GssErrorCode, MechanismErrorCode},
 };
 
 pub struct NameHandle {
@@ -57,10 +57,10 @@ impl Display for NameHandle {
                 std::ptr::null_mut(),
             )
         };
-        if let Some(_gss_err) = Error::gss(major) {
+        if let Some(_gss_err) = ErrorKind::gss(major) {
             return Ok(());
         }
-        if let Some(_mech_err) = Error::mechanism(minor) {
+        if let Some(_mech_err) = ErrorKind::mechanism(minor) {
             return Ok(());
         }
         let sl = unsafe { std::slice::from_raw_parts(buffer.value.cast(), buffer.length) };
@@ -84,10 +84,10 @@ unsafe fn import_name(principal: &str, oid: gss_OID) -> Result<NonNull<gss_name_
     if let Some(error) = GssErrorCode::new(unsafe {
         libgssapi_sys::gss_import_name(&raw mut minor, &mut namebuffer as gss_buffer_t, oid, &raw mut name)
     }) {
-        return Err(error.into());
+        return Err(Error::new(error.into()));
     }
     if let Some(err) = MechanismErrorCode::new(minor) {
-        return Err(err.into());
+        return Err(Error::new(err.into()));
     }
     Ok(NonNull::new(name).unwrap())
 }

@@ -18,9 +18,9 @@ pub enum InitializeError {
 #[cfg(unix)]
 impl From<kenobi_unix::Error> for InitializeError {
     fn from(value: kenobi_unix::Error) -> Self {
-        use kenobi_unix::{Error, error::GssInitErrorKind as Kind};
-        match value {
-            Error::Gss(gss) => match gss.kind_initialize() {
+        use kenobi_unix::{error::ErrorKind, error::GssInitErrorKind as Kind};
+        match value.kind() {
+            ErrorKind::Gss(gss) => match gss.kind_initialize() {
                 None => Self::Unknown,
                 Some(kind) => match kind {
                     Kind::BadBindings => Self::BadChannelBindings,

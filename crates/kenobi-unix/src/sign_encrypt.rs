@@ -6,7 +6,7 @@ use std::{
 
 use libgssapi_sys::{GSS_C_QOP_DEFAULT, gss_buffer_desc, gss_release_buffer, gss_unwrap, gss_wrap};
 
-use crate::{Error, context::ContextHandle};
+use crate::{Error, context::ContextHandle, error::ErrorKind};
 
 pub(crate) fn sign(ctx: &mut ContextHandle, message: &[u8]) -> Result<Signed, Error> {
     wrap(ctx, false, message).map(Signed)
@@ -26,7 +26,7 @@ fn wrap(ctx: &mut ContextHandle, encrypt: bool, message: &[u8]) -> Result<Securi
     };
 
     let mut conf_state = 0;
-    if let Some(major) = Error::gss(unsafe {
+    if let Some(major) = ErrorKind::gss(unsafe {
         gss_wrap(
             &raw mut minor,
             ctx.as_ptr().cast_mut(),
@@ -37,10 +37,10 @@ fn wrap(ctx: &mut ContextHandle, encrypt: bool, message: &[u8]) -> Result<Securi
             &raw mut output_buffer,
         )
     }) {
-        return Err(major);
+        return Err(Error::new(major));
     }
-    if let Some(err) = Error::mechanism(minor) {
-        return Err(err);
+    if let Some(err) = ErrorKind::mechanism(minor) {
+        return Err(Error::new(err));
     }
     assert!(!(encrypt && conf_state == 0), "Failed to encrypt");
     Ok(SecurityBuffer(output_buffer))
@@ -57,7 +57,7 @@ pub(crate) fn unwrap_raw(ctx: &mut ContextHandle, message: &[u8]) -> Result<Plai
         value: std::ptr::null_mut(),
     };
     let mut conf_state = 0;
-    if let Some(major) = Error::gss(unsafe {
+    if let Some(major) = ErrorKind::gss(unsafe {
         gss_unwrap(
             &raw mut minor,
             ctx.as_ptr().cast_mut(),
@@ -67,10 +67,10 @@ pub(crate) fn unwrap_raw(ctx: &mut ContextHandle, message: &[u8]) -> Result<Plai
             std::ptr::null_mut(),
         )
     }) {
-        return Err(major);
+        return Err(Error::new(major));
     }
-    if let Some(minor) = Error::mechanism(minor) {
-        return Err(minor);
+    if let Some(minor) = ErrorKind::mechanism(minor) {
+        return Err(Error::new(minor));
     }
 
     Ok(Plaintext::new(SecurityBuffer(output_buffer), conf_state != 0))

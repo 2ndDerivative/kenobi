@@ -236,9 +236,11 @@ fn step<CU: OutboundUsable>(
                 unsafe { gss_delete_sec_context(&raw mut s, &raw mut ctx_ptr, ptr::null_mut()) };
             }
             if let Some(err) = MechanismErrorCode::new(minor_status) {
-                return Err(err.into());
+                return Err(Error::new(err.into()));
             }
-            Err(GssErrorCode::new(code).expect("is not GSS_C_COMPLETE").into())
+            Err(Error::new(
+                GssErrorCode::new(code).expect("is not GSS_C_COMPLETE").into(),
+            ))
         }
     }
 }

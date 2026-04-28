@@ -99,34 +99,51 @@ fn write_from_u32(val: u32, mechanism: i32, f: &mut std::fmt::Formatter<'_>) -> 
     Ok(())
 }
 
-#[derive(Clone, Copy, Debug)]
-pub enum Error {
-    Gss(GssErrorCode),
-    Mechanism(MechanismErrorCode),
+pub struct Error {
+    kind: ErrorKind,
+}
+impl std::fmt::Debug for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Error").field("kind", &self.kind).finish()
+    }
 }
 impl Error {
-    pub(crate) fn gss(val: u32) -> Option<Self> {
-        GssErrorCode::new(val).map(Error::Gss)
+    pub(crate) fn new(kind: ErrorKind) -> Self {
+        Self { kind }
     }
-    pub(crate) fn mechanism(val: u32) -> Option<Self> {
-        MechanismErrorCode::new(val).map(Error::Mechanism)
+    pub fn kind(&self) -> ErrorKind {
+        self.kind
     }
 }
 impl std::error::Error for Error {}
 impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Gss(gss) => gss.fmt(f),
-            Self::Mechanism(mech) => mech.fmt(f),
+        match self.kind {
+            ErrorKind::Gss(gss) => gss.fmt(f),
+            ErrorKind::Mechanism(mech) => mech.fmt(f),
         }
     }
 }
-impl From<GssErrorCode> for Error {
+
+#[derive(Clone, Copy, Debug)]
+pub enum ErrorKind {
+    Gss(GssErrorCode),
+    Mechanism(MechanismErrorCode),
+}
+impl ErrorKind {
+    pub(crate) fn gss(val: u32) -> Option<Self> {
+        GssErrorCode::new(val).map(Self::Gss)
+    }
+    pub(crate) fn mechanism(val: u32) -> Option<Self> {
+        MechanismErrorCode::new(val).map(Self::Mechanism)
+    }
+}
+impl From<GssErrorCode> for ErrorKind {
     fn from(value: GssErrorCode) -> Self {
         Self::Gss(value)
     }
 }
-impl From<MechanismErrorCode> for Error {
+impl From<MechanismErrorCode> for ErrorKind {
     fn from(value: MechanismErrorCode) -> Self {
         Self::Mechanism(value)
     }
