@@ -87,14 +87,15 @@ impl From<kenobi_unix::server::StepError> for AcceptError {
 impl From<AcceptContextError> for AcceptError {
     fn from(value: AcceptContextError) -> Self {
         use AcceptContextError as Error;
-        match value {
-            Error::Internal => Self::Unknown,
-            Error::InvalidHandle => Self::InvalidContext,
-            Error::InvalidToken => Self::DefectiveToken,
-            Error::Denied => Self::InvalidCredentials,
+        let kind = match value {
+            Error::Internal => AcceptErrorKind::Unknown,
+            Error::InvalidHandle => AcceptErrorKind::InvalidContext,
+            Error::InvalidToken => AcceptErrorKind::DefectiveToken,
+            Error::Denied => AcceptErrorKind::InvalidCredentials,
             // TODO this is a kerberos specific error in GSSAPI
-            Error::NoAuthority => Self::Unknown,
-            Error::InvalidClientChannelBindings => Self::BadChannelBindings,
-        }
+            Error::NoAuthority => AcceptErrorKind::Unknown,
+            Error::InvalidClientChannelBindings => AcceptErrorKind::BadChannelBindings,
+        };
+        Self { kind }
     }
 }
