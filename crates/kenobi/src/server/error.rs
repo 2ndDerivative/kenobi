@@ -1,6 +1,7 @@
 #[cfg(windows)]
 use kenobi_windows::server::{AcceptContextError, AcceptContextErrorKind};
 
+#[derive(Debug)]
 pub struct AcceptError {
     kind: AcceptErrorKind,
     #[cfg(unix)]
